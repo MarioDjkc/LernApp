@@ -1,0 +1,94 @@
+// app/api/teachers/apply/route.ts
+import { NextResponse } from "next/server";
+import prisma from "@/app/lib/prisma";
+import { promises as fs } from "fs";
+import path from "path";
+import nodemailer from "nodemailer";
+
+export const runtime = "nodejs";
+
+export async function POST(req: Request) {
+  try {
+    const form = await req.formData();
+    const name = String(form.get("name") || "");
+    const email = String(form.get("email") || "");
+    const subject = String(form.get("subject") || "");
+    const letter = String(form.get("letter") || "");
+    const file = form.get("file") as File | null;
+
+    if (!name || !email || !letter) {
+      return NextResponse.json(
+        { error: "Name, E-Mail und Bewerbungstext sind erforderlich." },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Datei speichern (optional)
+    let filePath: string | null = null;
+    if (file && file.size > 0) {
+      const bytes = Buffer.from(await file.arrayBuffer());
+      const uploadDir = path.join(process.cwd(), "public", "uploads");
+      await fs.mkdir(uploadDir, { recursive: true });
+
+      const safeName = `${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
+      filePath = `/uploads/${safeName}`;
+      await fs.writeFile(path.join(uploadDir, safeName), bytes);
+    }
+
+    // ✅ In DB speichern
+    await prisma.teacherApplication.create({
+      data: { name, email, subject, letter, filePath },
+    });
+
+    // ✅ Mail-Transport (einmal erstellen, dann 2 Mails schicken)
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: true,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+
+    // 1) 📧 Mail an Admin
+    await transporter.sendMail({
+      from: process.env.FROM_EMAIL,
+      to: process.env.SMTP_USER, // Admin-Adresse
+      subject: "Neue Lehrerbewerbung erhalten",
+      html: `
+        <h2>Neue Lehrerbewerbung</h2>
+        <p><b>Name:</b> ${name}</p>
+        <p><b>E-Mail:</b> ${email}</p>
+        <p><b>Fach:</b> ${subject || "kein Fach angegeben"}</p>
+        <p><b>Motivation:</b><br>${letter}</p>
+        ${
+          filePath
+            ? `<p><b>Datei:</b> <a href="${baseUrl}${filePath}">PDF ansehen</a></p>`
+            : "<p><b>Datei:</b> keine hochgeladen</p>"
+        }
+      `,
+    });
+
+    // 2) 📧 Bestätigung an den Bewerber
+    await transporter.sendMail({
+      from: process.env.FROM_EMAIL,
+      to: email,
+      subject: "Deine Bewerbung bei LernApp ist eingegangen",
+      html: `
+        <h2>Danke für deine Bewerbung, ${name}!</h2>
+        <p>Wir haben deine Unterlagen erhalten und melden uns so schnell wie möglich bei dir.</p>
+        <p><b>E-Mail:</b> ${email}</p>
+        <p><b>Fach:</b> ${subject || "kein Fach angegeben"}</p>
+        <p>Viele Grüße,<br/>dein LernApp-Team</p>
+      `,
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("POST /api/teachers/apply error:", err);
+    return NextResponse.json({ error: "ServerFehler" }, { status: 500 });
+  }
+}
