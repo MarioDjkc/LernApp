@@ -49,6 +49,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const bookingId = session.metadata?.bookingId as string | undefined;
       const customerId = session.customer as string | undefined;
       const setupIntentId = session.setup_intent as string | undefined;
+      // ❗ Payment Method kommt NICHT aus session → SetupIntent muss abgerufen werden
+      let paymentMethodId: string | null = null;
+
+      if (setupIntentId) {
+        const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+        paymentMethodId = setupIntent.payment_method as string;
+      }
 
       if (bookingId) {
         await prisma.booking.update({
@@ -56,6 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           data: {
             stripeCustomerId: customerId,
             stripeSetupIntentId: setupIntentId,
+            stripePaymentMethodId: paymentMethodId,
             status: "payment_method_saved",
           },
         });

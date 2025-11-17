@@ -8,7 +8,7 @@ export default function CheckoutTestPage() {
       <p>Dies ist eine Testseite, um den Stripe Checkout (mode=setup) zu testen.</p>
 
       <CheckoutButton
-        teacherId="teacher_test_123"
+        teacherId="0ede85ea-72fb-45a3-a34a-0b573b3fbfc0"
         studentName="Max Mustermann"
         studentEmail="max@example.com"
         start={new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()}
