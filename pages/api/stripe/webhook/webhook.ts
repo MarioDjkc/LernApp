@@ -1,11 +1,8 @@
 // pages/api/stripe/webhook.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
-
-// Stripe instance
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-10-29.clover",
-});
+import { stripe } from "../../../../lib/stripe";
+import { prisma } from "../../../../lib/prisma";
 
 // Disable Next.js body-parser
 export const config = {
@@ -47,10 +44,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // ---------------------------------------------------
   switch (event.type) {
     case "checkout.session.completed":
-      const session = event.data.object;
-      console.log("💰 Checkout bezahlt:", session);
-      // → hier kannst du z.B. Prisma verwenden
+      const session = event.data.object as Stripe.Checkout.Session;
+      // For setup mode:
+      const bookingId = session.metadata?.bookingId as string | undefined;
+      const customerId = session.customer as string | undefined;
+      const setupIntentId = session.setup_intent as string | undefined;
+
+      if (bookingId) {
+        await prisma.booking.update({
+          where: { id: bookingId },
+          data: {
+            stripeCustomerId: customerId,
+            stripeSetupIntentId: setupIntentId,
+            status: "payment_method_saved",
+          },
+        });
+      }
+      console.log("checkout.session.completed handled", { bookingId, customerId, setupIntentId });
       break;
+
 
     case "payment_intent.succeeded":
       console.log("💸 Zahlung erfolgreich");
