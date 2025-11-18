@@ -1,3 +1,4 @@
+// app/api/teachers/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
 import bcrypt from "bcryptjs";
@@ -6,10 +7,45 @@ import crypto from "crypto";
 
 export const runtime = "nodejs";
 
+//
+// 🔹 GET  /api/teachers
+// Wird von deinem Dashboard mit fetch("/api/teachers") aufgerufen
+//
+export async function GET() {
+  try {
+    const teachers = await prisma.teacher.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        subject: true,
+      },
+      orderBy: { name: "asc" },
+    });
+
+    // wichtig: immer gültiges JSON zurückgeben
+    return NextResponse.json({ data: teachers });
+  } catch (err) {
+    console.error("GET /api/teachers error:", err);
+    return NextResponse.json(
+      { data: [], error: "ServerFehler" },
+      { status: 500 }
+    );
+  }
+}
+
+//
+// 🔹 POST  /api/teachers
+// Admin legt neuen Lehrer an (mit E-Mail + Reset-Link)
+//
 export async function POST(req: Request) {
   try {
-    const { id, name, email, subject } = await req.json();
-    console.log("Empfangene Daten:", { id, name, email, subject });
+    const { id, name, email, subject } = (await req.json()) as {
+      id?: string;
+      name?: string;
+      email?: string;
+      subject?: string;
+    };
 
     if (!id || !name || !email || !subject) {
       return NextResponse.json(

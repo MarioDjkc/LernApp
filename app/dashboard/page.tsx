@@ -1,212 +1,128 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import ChatWhatsAppModal from "../components/ChatWidget";
-import BookingModal from "../components/BookingModal";
 
 type Teacher = {
   id: string;
   name: string;
   subject: string;
-  rating: number;
+  rating?: number;
   avatarUrl?: string | null;
-  lessonsCount: number;
 };
 
 const SUBJECT_TAGS = [
-  "Mathematik",
-  "Englisch",
-  "Deutsch",
-  "Biologie",
-  "Physik",
-  "Chemie",
-  "Informatik",
-  "Elektrotechnik",
-  "BWL",
-  "Recht",
-  "Geschichte",
-  "Geographie",
-  "Spanisch",
-  "Französisch",
-  "Musik",
-  "Kunst",
-  "Sport",
-  "Statistik",
-  "Programmieren",
-  "Wirtschaftsinformatik",
+  "Mathematik", "Englisch", "Deutsch", "Biologie", "Physik", "Chemie",
+  "Informatik", "Elektrotechnik", "BWL", "Recht", "Geschichte",
+  "Geographie", "Spanisch", "Französisch", "Musik", "Kunst", "Sport",
+  "Statistik", "Programmieren", "Wirtschaftsinformatik"
 ];
 
-function Stars({ rating }: { rating: number }) {
-  const full = Math.max(0, Math.min(5, rating));
-  return (
-    <span className="text-amber-500">
-      {"★".repeat(full)}
-      <span className="text-gray-300">{"★".repeat(5 - full)}</span>
-    </span>
-  );
-}
-
-export default function DashboardPage() {
-  const [query, setQuery] = useState("");
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+export default function StudentDashboard() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
 
-  // Booking modal state
-  const [bookOpen, setBookOpen] = useState(false);
-  const [selectedTeacher, setSelectedTeacher] = useState<
-    { id: string; name: string; subject: string } | null
-  >(null);
+  // ------- LEHRER LADEN -------
+  const loadTeachers = async (value: string) => {
+    const url = value
+      ? `/api/search?subject=${encodeURIComponent(value)}`
+      : "/api/search";
 
-  // Initial laden
+    const res = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+    setTeachers(data.data);
+  };
+
+  // Erstes Laden → zeigt alle Lehrer
   useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/teachers", { cache: "no-store" });
-      const json = await res.json();
-      setTeachers(json.data ?? []);
-    })();
+    loadTeachers("");
   }, []);
 
-  // Suche + Filter (debounced)
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams();
-        if (query.trim()) params.set("q", query.trim());
-        if (activeTag) params.set("subject", activeTag);
-        const res = await fetch(`/api/teachers?${params.toString()}`, {
-          cache: "no-store",
-        });
-        const json = await res.json();
-        setTeachers(json.data ?? []);
-      } finally {
-        setLoading(false);
-      }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [query, activeTag]);
+  // Bei Eingabe → automatisch filtern
+  const handleInputChange = (e: any) => {
+    const value = e.target.value;
+    setSearch(value);
+    loadTeachers(value);
+  };
+
+  // Klick auf Tag
+  const handleTagClick = (tag: string) => {
+    setSearch(tag);
+    loadTeachers(tag);
+  };
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-6xl px-6 md:px-10 py-10">
-        <h1 className="text-4xl md:text-5xl font-bold mb-6">Fach suchen</h1>
+    <main className="min-h-screen bg-[#f5f7fa] px-6 py-10 flex justify-center">
+      <div className="w-full max-w-6xl">
 
-        {/* Suche */}
-        <div className="mb-4">
-          <div className="relative">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Mathematik, Englisch, Deutsch…"
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pl-11 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              🔎
-            </span>
-          </div>
+        {/* ----- TITLE ----- */}
+        <h1 className="text-4xl font-bold mb-6">Fach suchen</h1>
+
+        {/* ----- SEARCH INPUT ----- */}
+        <div className="mb-6">
+          <input
+            value={search}
+            onChange={handleInputChange}
+            placeholder="Mathematik, Englisch, Deutsch..."
+            className="w-full md:w-1/2 px-4 py-3 rounded-xl border border-gray-300 shadow-sm"
+          />
         </div>
 
-        {/* Tags */}
-        <div className="flex flex-wrap gap-2 mb-8">
-          {SUBJECT_TAGS.map((s) => {
-            const active = activeTag === s;
-            return (
-              <button
-                key={s}
-                onClick={() => setActiveTag((prev) => (prev === s ? null : s))}
-                className={`px-4 py-1.5 rounded-full border transition ${
-                  active
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                {s}
-              </button>
-            );
-          })}
+        {/* ----- SUBJECT TAGS ----- */}
+        <div className="flex flex-wrap gap-3 mb-10">
+          {SUBJECT_TAGS.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => handleTagClick(tag)}
+              className="px-4 py-2 rounded-full bg-white border border-gray-200 shadow-sm text-sm hover:bg-gray-50"
+            >
+              {tag}
+            </button>
+          ))}
         </div>
 
-        {/* Status */}
-        {loading && <div className="text-gray-500 mb-4">Laden…</div>}
-        {!loading && teachers.length === 0 && (
-          <div className="text-gray-500 mb-4">
-            Keine Treffer – Suchbegriff oder Fach anpassen.
-          </div>
-        )}
+        {/* ----- TEACHER GRID ----- */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
-        {/* Lehrer-Karten */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {teachers.map((t) => {
-            const lessons =
-              typeof t.lessonsCount === "number" ? t.lessonsCount : 0;
-            const lessonsLabel = lessons > 0 ? `${lessons} Lektionen` : "Neu";
-
-            return (
-              <article
+          {teachers.length > 0 &&
+            teachers.map((t) => (
+              <div
                 key={t.id}
-                className="group rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition p-5"
+                className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition"
               >
-                {/* Grid sorgt dafür, dass unten nichts „leer“ ist */}
-                <div className="grid grid-cols-[3.5rem_1fr_auto] grid-rows-[auto_auto] gap-x-4 gap-y-2 items-center">
-                  {/* Avatar (span 2 rows) */}
-                  <div className="row-span-2 w-14 h-14 rounded-full bg-gray-200 overflow-hidden ring-4 ring-gray-50">
-                    {t.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={t.avatarUrl}
-                        alt={t.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : null}
-                  </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-gray-200" />
 
-                  {/* Name */}
-                  <div className="font-semibold text-lg truncate">{t.name}</div>
-
-                  {/* Button */}
-                  <button
-                    className="justify-self-end rounded-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm"
-                    onClick={() => {
-                      setSelectedTeacher({
-                        id: t.id,
-                        name: t.name,
-                        subject: t.subject,
-                      });
-                      setBookOpen(true);
-                    }}
-                    title="Termin vereinbaren"
-                  >
-                    Termin vereinbaren
-                  </button>
-
-                  {/* Fach */}
-                  <div className="text-sm text-gray-600 col-span-2">
-                    {t.subject}
-                  </div>
-
-                  {/* Bewertung + Lektionen */}
-                  <div className="flex items-center gap-2 text-sm text-gray-600 col-span-2">
-                    <Stars rating={t.rating} />
-                    <span className="text-gray-300">•</span>
-                    <span className="truncate">{lessonsLabel}</span>
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-lg">{t.name}</span>
+                    <span className="text-gray-600 text-sm">{t.subject}</span>
+                    <span className="text-xs text-gray-500">Neu</span>
                   </div>
                 </div>
-              </article>
-            );
-          })}
+
+                <div className="mt-3 text-orange-400 text-sm">
+                  ★★★★★
+                </div>
+
+                <div className="mt-4">
+                  <a
+                    href={`/book/${t.id}`}
+                    className="inline-block px-4 py-2 bg-blue-600 text-white text-sm rounded-lg shadow hover:bg-blue-700 transition"
+                  >
+                    Termin vereinbaren
+                  </a>
+                </div>
+              </div>
+            ))}
+
+          {teachers.length === 0 && (
+            <p className="text-gray-500 col-span-full text-center">
+              Keine Lehrer gefunden.
+            </p>
+          )}
+
         </div>
+
       </div>
-
-      {/* Booking Modal */}
-      <BookingModal
-        open={bookOpen}
-        onClose={() => setBookOpen(false)}
-        teacher={selectedTeacher}
-      />
-
-      {/* Chatwidget */}
-      <ChatWhatsAppModal />
     </main>
   );
 }

@@ -7,23 +7,49 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-model Teacher {
-  id                 String   @id
-  name               String
-  email              String   @unique
-  subject            String
-  password           String
-  mustChangePassword Boolean  @default(true)
-  bookings           Booking[]
-  resetTokens        PasswordResetToken[]
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
 }
 
+model Teacher {
+  id                 String  @id
+  name               String
+  email              String  @unique
+  subject            String
+  password           String
+  mustChangePassword Boolean @default(true)
+
+  bookings            Booking[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model Student {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+}
+
+
 model Booking {
-  id         String   @id @default(cuid())
-  teacherId  String
-  teacher    Teacher  @relation(fields: [teacherId], references: [id])
-  name       String
-  createdAt  DateTime @default(now())
+  id           String   @id @default(cuid())
+  teacherId    String
+  teacher      Teacher  @relation(fields: [teacherId], references: [id])
+
+  studentName  String
+  studentEmail String
+  subject      String?
+
+  startsAt     DateTime
+  endsAt       DateTime?
+  note         String?
+
+  status       String   @default("REQUESTED")
+  createdAt    DateTime @default(now())
 }
 
 model TeacherApplication {
@@ -37,9 +63,9 @@ model TeacherApplication {
 }
 
 model PasswordResetToken {
-  id         String   @id @default(cuid())
-  token      String   @unique
-  teacherId  String
-  teacher    Teacher  @relation(fields: [teacherId], references: [id])
-  expiresAt  DateTime
+  id        String   @id @default(cuid())
+  token     String   @unique
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id])
+  expiresAt DateTime
 }

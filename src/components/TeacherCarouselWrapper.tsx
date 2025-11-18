@@ -5,7 +5,7 @@ import type { Teacher } from "@/app/lib/types";
 type Props = {
   teachers: Teacher[];
 };
-Test Mario
+
 export default function TeacherCarouselWrapper({ teachers }: Props) {
   return (
     <div className="flex gap-4 overflow-x-auto pb-2">

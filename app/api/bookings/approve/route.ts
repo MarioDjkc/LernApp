@@ -1,72 +1,90 @@
-// app/api/bookings/approve/route.ts
+// app/api/bookings/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
 
+export const runtime = "nodejs";
 
-type Body = {
-  bookingId?: string;
-  action?: "accept" | "decline";
-};
-
-/**
- * Diese Route setzt den Status einer Buchung auf ACCEPTED oder DECLINED.
- * ➜ ACCEPTED = Termin erscheint im Kalender (wir werten im UI alle ACCEPTED-Bookings aus)
- * ➜ DECLINED = Termin wird abgelehnt
- *
- * Request:  POST /api/bookings/approve
- * Body:     { bookingId: string, action: "accept" | "decline" }
- */
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as Body;
+    const body = await req.json();
 
-    if (!body?.bookingId || !body?.action) {
+    const {
+      teacherId,
+      studentName,
+      studentEmail,
+      subject,
+      startDate,
+      endDate,
+      note,
+    } = body as {
+      teacherId?: string;
+      studentName?: string;
+      studentEmail?: string;
+      subject?: string;
+      startDate?: string; // ISO-String z.B. "2025-11-20T14:00:00.000Z"
+      endDate?: string;
+      note?: string;
+    };
+
+    // 🔹 Pflichtfelder prüfen
+    if (!teacherId || !studentName || !studentEmail || !startDate) {
       return NextResponse.json(
-        { error: "bookingId und action sind Pflichtfelder." },
+        {
+          error:
+            "teacherId, studentName, studentEmail und startDate sind Pflicht.",
+        },
         { status: 400 }
       );
     }
 
-    const booking = await prisma.booking.findUnique({
-      where: { id: body.bookingId },
-      include: { teacher: true },
+    // 🔹 Lehrer existiert?
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
     });
 
-    if (!booking) {
+    if (!teacher) {
       return NextResponse.json(
-        { error: "Buchung nicht gefunden." },
+        { error: "Lehrer wurde nicht gefunden." },
         { status: 404 }
       );
     }
 
-    const newStatus = body.action === "accept" ? "ACCEPTED" : "DECLINED" as const;
+    // 🔹 Datum parsen
+    const startsAt = new Date(startDate);
+    const endsAt = endDate ? new Date(endDate) : null;
 
-    const updated = await prisma.booking.update({
-      where: { id: booking.id },
-      data: { status: newStatus },
-    });
+    if (isNaN(startsAt.getTime()) || (endDate && isNaN(endsAt!.getTime()))) {
+      return NextResponse.json(
+        { error: "Ungültiges Datum / Uhrzeit." },
+        { status: 400 }
+      );
+    }
 
-    // WICHTIG: Wir benutzen das Booking selbst als „Kalendereintrag“.
-    // Im Lehrer-Dashboard werden einfach alle Bookings mit status=ACCEPTED angezeigt.
-    // => Kein extra Calendar-Model nötig.
-
-    return NextResponse.json({
-      ok: true,
+    // 🔹 Termin speichern (Status: REQUESTED)
+    const booking = await prisma.booking.create({
       data: {
-        id: updated.id,
-        teacherId: updated.teacherId,
-        datetime: updated.datetime,
-        status: updated.status, // ACCEPTED | DECLINED
+        teacherId,
+        studentName,
+        studentEmail,
+        subject: subject ?? null,
+        startsAt,
+        endsAt,
+        note: note ?? null,
+        status: "REQUESTED", // angefragt
       },
-      message:
-        newStatus === "ACCEPTED"
-          ? "Termin wurde angenommen und erscheint im Kalender."
-          : "Termin wurde abgelehnt.",
     });
-  } catch (err) {
-    console.error("POST /api/bookings/approve error:", err);
+
     return NextResponse.json(
-      { error: "Serverfehler beim Aktualisieren der Buchung." },
+      {
+        ok: true,
+        booking,
+      },
+      { status: 201 }
+    );
+  } catch (err) {
+    console.error("POST /api/bookings error:", err);
+    return NextResponse.json(
+      { error: "ServerFehler bei der Buchung." },
       { status: 500 }
     );
   }

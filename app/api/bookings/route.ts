@@ -1,50 +1,51 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/app/lib/prisma";
 
-export const runtime = "nodejs";
-const prisma = new PrismaClient();
-
-/**
- * POST /api/bookings
- * body: { teacherId, name, email, date: YYYY-MM-DD, time: HH:MM, note? }
- */
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { teacherId, name, email, date, time, note } = body || {};
+    // 🔹 1) Daten aus dem Request auslesen
+    const {
+      teacherId,
+      studentName,
+      studentEmail,
+      subject,
+      startDate,
+      endDate,
+      note,
+    } = await req.json();
 
-    if (!teacherId || !name || !email || !date || !time) {
-      return NextResponse.json({ error: "Felder fehlen" }, { status: 400 });
-    }
-
-    // Kombiniere Datum + Uhrzeit in lokale Zeit
-    const datetime = new Date(`${date}T${time}:00`);
-
-    // Doppelbuchung verhindern
-    const exists = await prisma.booking.findFirst({
-      where: { teacherId, datetime },
-      select: { id: true },
-    });
-    if (exists) {
+    // 🔹 2) Validierung
+    if (!teacherId || !studentName || !studentEmail || !startDate) {
       return NextResponse.json(
-        { error: "Slot bereits belegt" },
-        { status: 409 }
+        { error: "Fehlende Felder (teacherId, studentName, studentEmail, startDate)." },
+        { status: 400 }
       );
     }
 
-    const created = await prisma.booking.create({
+    // 🔹 3) Termin in der Datenbank speichern
+    const booking = await prisma.booking.create({
       data: {
         teacherId,
-        name,
-        email,
-        datetime,
-        note: note ?? "REQUESTED", // einfache Markierung als "angefragt"
+        studentName,
+        studentEmail,
+        subject: subject ?? null,
+        startsAt: new Date(startDate),
+        endsAt: endDate ? new Date(endDate) : null,
+        note: note ?? null,
+        status: "REQUESTED", // Status für angefragt
       },
     });
 
-    return NextResponse.json({ ok: true, booking: created }, { status: 201 });
-  } catch (e) {
-    console.error("BOOKING_CREATE_ERROR", e);
-    return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
+    // 🔹 4) Erfolg zurückgeben
+    return NextResponse.json(
+      { ok: true, booking },
+      { status: 201 }
+    );
+  } catch (err) {
+    console.error("POST /api/bookings error:", err);
+    return NextResponse.json(
+      { error: "Serverfehler" },
+      { status: 500 }
+    );
   }
 }

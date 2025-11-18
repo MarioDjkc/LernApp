@@ -1,75 +1,110 @@
-// app/search/page.tsx
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
 
 type Teacher = {
   id: string;
   name: string;
   subject: string;
   rating: number;
+  price?: number;
   avatarUrl?: string | null;
 };
 
-async function loadTeachers(): Promise<Teacher[]> {
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? "";
-  const res = await fetch(`${base}/api/teachers`, { cache: "no-store" });
-  if (!res.ok) return [];
-  const json = (await res.json()) as { data: Teacher[] };
-  return json.data ?? [];
-}
+export default function TeacherSelectPage() {
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [subject, setSubject] = useState("");
 
-export default async function SearchPage() {
-  const teachers = await loadTeachers();
+  const loadTeachers = async () => {
+    const res = await fetch("/api/teachers", { cache: "no-store" });
+    if (!res.ok) return;
+
+    let data = (await res.json()).data || [];
+
+    if (subject.trim() !== "") {
+      data = data.filter((t: Teacher) =>
+        t.subject.toLowerCase().includes(subject.toLowerCase())
+      );
+    }
+
+    setTeachers(data);
+  };
+
+  useEffect(() => {
+    loadTeachers();
+  }, []);
 
   return (
-    <main className="mx-auto max-w-6xl px-6 md:px-10 py-10 space-y-8">
-      <h1 className="text-4xl font-bold">Fach suchen</h1>
+    <main className="max-w-6xl mx-auto px-6 py-12">
 
-      {/* einfache Suche (Frontend-only) */}
-      {/* Du kannst hier später echte Filter/Tags anschließen */}
-      {/* Aktuell nur Darstellung der DB-Daten */}
+      {/* TITLE */}
+      <h1 className="text-4xl font-bold text-center mb-14">
+        Lehrer:in auswählen
+      </h1>
 
-      {teachers.length === 0 ? (
-        <div className="rounded-xl border bg-white p-8 text-center text-gray-600">
-          Zur Zeit sind noch keine Lehrerprofile veröffentlicht.
-          <br />
-          Bald erscheinen hier echte Profile.
+      {/* FILTER */}
+      <div className="flex items-center justify-center gap-4 mb-14 flex-wrap">
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-1">Fach</label>
+          <input
+            type="text"
+            placeholder="Fach auswählen"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            className="border border-gray-300 rounded-xl px-4 py-3 w-60 bg-white"
+          />
         </div>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {teachers.map((t) => (
-            <div
-              key={t.id}
-              className="rounded-2xl border bg-white p-5 shadow-sm flex items-center gap-4"
-            >
-              <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
-                {t.avatarUrl ? (
-                  <Image
-                    src={t.avatarUrl}
-                    alt={t.name}
-                    width={48}
-                    height={48}
-                    className="w-12 h-12 object-cover"
-                  />
-                ) : null}
+
+        <button
+          onClick={loadTeachers}
+          className="bg-black text-white px-6 py-3 rounded-xl hover:opacity-80 transition"
+        >
+          Suche
+        </button>
+      </div>
+
+      {/* GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {teachers.length === 0 && (
+          <p className="text-center text-gray-500 col-span-full">
+            Keine Lehrer gefunden.
+          </p>
+        )}
+
+        {teachers.map((t) => (
+          <div
+            key={t.id}
+            className="border border-gray-200 rounded-2xl bg-white shadow-sm p-6 flex gap-5"
+          >
+            <img
+              src={t.avatarUrl ?? "/avatar-placeholder.png"}
+              className="w-20 h-20 rounded-full object-cover"
+            />
+
+            <div className="flex flex-col justify-between flex-1">
+              <div>
+                <h2 className="font-semibold text-lg">{t.name}</h2>
+                <p className="text-gray-600">{t.subject}</p>
+                <p className="font-medium mt-1">{t.price ?? 40} €/Std.</p>
               </div>
-              <div className="flex-1">
-                <div className="font-semibold truncate">{t.name}</div>
-                <div className="text-sm text-gray-600">{t.subject}</div>
-                <div className="text-yellow-400 text-sm">
-                  {"★".repeat(Math.max(0, Math.min(5, t.rating)))}
-                  {"☆".repeat(Math.max(0, 5 - t.rating))}
-                </div>
+
+              <div className="flex text-yellow-400 mt-2">
+                {"★".repeat(Math.round(t.rating))}
+                {"☆".repeat(5 - Math.round(t.rating))}
               </div>
+            </div>
+
+            <div className="flex items-center">
               <a
                 href={`/book/${t.id}`}
-                className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 rounded-lg whitespace-nowrap"
+                className="bg-black text-white px-5 py-2 rounded-xl hover:opacity-80 transition"
               >
-                Termin vereinbaren
+                Buchen
               </a>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
     </main>
   );
 }
