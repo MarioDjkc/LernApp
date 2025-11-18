@@ -34,6 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       payment_method: paymentMethod,
       off_session: true,
       confirm: true,
+      transfer_group: booking.id,
     });
 
     await prisma.booking.update({
