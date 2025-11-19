@@ -15,7 +15,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Beispiel: Lehrer bekommt 70%
-  const teacherAmount = Math.round(booking.priceCents * 0.7);
+  const teacherAmount = Math.round(booking.priceCents * 0.6);
 
   const transfer = await stripe.transfers.create({
     amount: teacherAmount,

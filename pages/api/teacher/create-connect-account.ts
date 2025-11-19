@@ -9,6 +9,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     type: "express",
   });
 
+  //DB
+  //Table Teacher
+  //Add stripeAccounteId
   await prisma.teacher.update({
     where: { id: teacherId },
     data: { stripeAccountId: account.id },

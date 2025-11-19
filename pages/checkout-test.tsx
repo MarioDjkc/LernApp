@@ -1,5 +1,10 @@
 import CheckoutButton from "../src/components/CheckoutButton";
 
+//
+//  Page zum Austesten der Component: CheckoutButton
+//  
+
+
 export default function CheckoutTestPage() {
   return (
     <div style={{ padding: 40 }}>
@@ -8,7 +13,7 @@ export default function CheckoutTestPage() {
       <p>Dies ist eine Testseite, um den Stripe Checkout (mode=setup) zu testen.</p>
 
       <CheckoutButton
-        teacherId="0ede85ea-72fb-45a3-a34a-0b573b3fbfc0"
+        teacherId="4ca6f040-08e9-48c0-8a46-d3c4438684c6"
         studentName="Max Mustermann"
         studentEmail="max@example.com"
         start={new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()}
