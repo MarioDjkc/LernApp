@@ -1,10 +1,5 @@
 // components/CheckoutButton.tsx
-import React from "react";
-
-//
-//  CheckoutButton:
-//    Parameter:
-//      
+import React from "react";    
 
 export default function CheckoutButton({
   teacherId,

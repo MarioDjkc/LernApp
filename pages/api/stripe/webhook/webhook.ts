@@ -4,6 +4,16 @@ import Stripe from "stripe";
 import { stripe } from "../../../../lib/stripe";
 import { prisma } from "../../../../lib/prisma";
 
+//
+//  Webhook.ts:
+//    Sobald ein Stripe-Ereignis passiert, wird je nach case programm ausgeführt.
+//    In lokaler Entwicklungs-Umgebung muss im Hintergrund 
+//    stripe listen --forward-to http://localhost:3000/api/stripe/webhook
+//    In einer Konsole ausgeführt werden. Später wenn alles Live ist, wird es nicht mehr benötigt.
+//    Falls in lokaler Umgebung nämlich nicht gelauscht wird, werden die cases nicht ausgeführt
+//
+
+
 // Disable Next.js body-parser
 export const config = {
   api: {

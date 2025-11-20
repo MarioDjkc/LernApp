@@ -2,6 +2,11 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
 
+//
+//  [id].tsx:
+//    Page für den Lehrer, um einen Termin zu akzeptieren/ablehnen 
+//
+
 export default function TeacherConfirmPage() {
   const router = useRouter();
   const { id } = router.query;

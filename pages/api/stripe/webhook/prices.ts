@@ -2,6 +2,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
 
+//
+//  prices.ts:
+//    -Testseite zum Ausgeben der Angebote
+//
+
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-10-29.clover",
 });
