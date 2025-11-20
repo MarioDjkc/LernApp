@@ -1,35 +1,36 @@
+// app/api/bookings/teacher/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/pages/api/auth/[...nextauth]";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Nicht eingeloggt" }, { status: 401 });
+    const { searchParams } = new URL(req.url);
+    const teacherId = searchParams.get("teacherId");
+
+    if (!teacherId) {
+      return NextResponse.json(
+        { error: "teacherId fehlt" },
+        { status: 400 }
+      );
     }
 
-    const teacherId = session.user.id;
-
+    // 🔹 Hier wird WIRKLICH die DB gelesen (deine Booking-Tabelle)
     const bookings = await prisma.booking.findMany({
       where: { teacherId },
       include: {
-        student: true,
+        student: {
+          select: { name: true, email: true },
+        },
       },
       orderBy: { start: "asc" },
     });
 
-    const events = bookings.map((b) => ({
-      id: b.id,
-      title: `Schüler: ${b.student.name ?? b.student.email}`,
-      start: b.start,
-      end: b.end,
-    }));
-
-    return NextResponse.json({ events, bookings });
+    return NextResponse.json({ bookings });
   } catch (err) {
     console.error("GET /api/bookings/teacher error:", err);
-    return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Serverfehler beim Laden der Buchungen" },
+      { status: 500 }
+    );
   }
 }

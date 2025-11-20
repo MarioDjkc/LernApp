@@ -3,14 +3,13 @@
 import { useState } from "react";
 
 export default function AdminCreateTeacherPage() {
-  const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
   const [rating, setRating] = useState(5);
   const [avatarUrl, setAvatarUrl] = useState("");
   const [applicantEmail, setApplicantEmail] = useState("");
   const [adminKey, setAdminKey] = useState("");
-  const [password, setPassword] = useState(""); // optional – leer lassen ⇒ Temp-PW wird generiert
+  const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,8 +20,9 @@ export default function AdminCreateTeacherPage() {
     setError(null);
     setOkMsg(null);
 
-    if (!id || !name || !subject || !applicantEmail || !adminKey) {
-      setError("Bitte id, name, subject, rating, applicantEmail und adminKey angeben.");
+    // ⛔ id wurde entfernt → also auch NICHT prüfen!
+    if (!name || !subject || !applicantEmail || !adminKey) {
+      setError("Bitte Name, Fach, Email und Admin-Key angeben.");
       return;
     }
 
@@ -32,14 +32,13 @@ export default function AdminCreateTeacherPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id,
           name,
           subject,
           rating: Number(rating),
           avatarUrl: avatarUrl || null,
           email: applicantEmail,
           adminKey,
-          password: password || undefined, // leer ⇒ API generiert Temp-PW
+          password: password || undefined,
         }),
       });
 
@@ -50,23 +49,15 @@ export default function AdminCreateTeacherPage() {
         return;
       }
 
-      // Hinweis: Deine API gibt (falls generiert) tempPassword im JSON zurück.
-      if (json?.tempPassword) {
-        setOkMsg(
-          `Lehrer angelegt. Temporäres Passwort: ${json.tempPassword} (wurde per E-Mail verschickt).`
-        );
-      } else {
-        setOkMsg("Lehrer angelegt.");
-      }
+      setOkMsg("Lehrer erfolgreich angelegt!");
 
-      // Felder leeren
-      setId("");
       setName("");
       setSubject("");
       setRating(5);
       setAvatarUrl("");
       setApplicantEmail("");
       setPassword("");
+
     } catch {
       setError("Netzwerkfehler.");
     } finally {
@@ -76,60 +67,12 @@ export default function AdminCreateTeacherPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Admin: Lehrer anlegen</h1>
-        <a
-          className="text-sm underline"
-          href="/admin/login"
-          title="Zum Admin-Login"
-        >
-          Admin-Login
-        </a>
-      </div>
+      <h1 className="text-2xl font-bold mb-4">Admin: Lehrer anlegen</h1>
 
-      <p className="text-gray-600 mb-6">
-        Trage einen neuen echten Lehrer in die Datenbank ein.{" "}
-        <span className="font-semibold">
-          Es wird geprüft, ob eine passende Bewerbung in <code>TeacherApplication</code> existiert
-        </span>{" "}
-        (Abgleich über die Bewerber-E-Mail).
-      </p>
-
-      {error && (
-        <div className="rounded border border-red-300 bg-red-50 text-red-700 p-3 mb-4">
-          {error}
-        </div>
-      )}
-      {okMsg && (
-        <div className="rounded border border-green-300 bg-green-50 text-green-700 p-3 mb-4">
-          {okMsg}
-        </div>
-      )}
+      {error && <div className="text-red-600 bg-red-100 p-3 rounded mb-4">{error}</div>}
+      {okMsg && <div className="text-green-700 bg-green-100 p-3 rounded mb-4">{okMsg}</div>}
 
       <form onSubmit={onSubmit} className="space-y-4">
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium">Lehrer-ID *</label>
-            <input
-              className="w-full border rounded px-3 py-2"
-              value={id}
-              onChange={(e) => setId(e.target.value)}
-              placeholder="t42"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Rating (1–5)</label>
-            <input
-              type="number"
-              min={1}
-              max={5}
-              className="w-full border rounded px-3 py-2"
-              value={rating}
-              onChange={(e) => setRating(Number(e.target.value))}
-            />
-          </div>
-        </div>
 
         <div>
           <label className="block text-sm font-medium">Name *</label>
@@ -138,7 +81,6 @@ export default function AdminCreateTeacherPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            placeholder="Max Mustermann"
           />
         </div>
 
@@ -149,7 +91,18 @@ export default function AdminCreateTeacherPage() {
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             required
-            placeholder="Mathematik"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">Rating (1–5)</label>
+          <input
+            type="number"
+            min={1}
+            max={5}
+            className="w-full border rounded px-3 py-2"
+            value={rating}
+            onChange={(e) => setRating(Number(e.target.value))}
           />
         </div>
 
@@ -159,46 +112,38 @@ export default function AdminCreateTeacherPage() {
             className="w-full border rounded px-3 py-2"
             value={avatarUrl}
             onChange={(e) => setAvatarUrl(e.target.value)}
-            placeholder="/avatars/max.jpg oder https://…"
           />
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium">
-              Bewerber-E-Mail (muss in TeacherApplication existieren) *
-            </label>
-            <input
-              type="email"
-              className="w-full border rounded px-3 py-2"
-              value={applicantEmail}
-              onChange={(e) => setApplicantEmail(e.target.value)}
-              required
-              placeholder="bewerber@mail.de"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium">Admin-Key *</label>
-            <input
-              className="w-full border rounded px-3 py-2"
-              value={adminKey}
-              onChange={(e) => setAdminKey(e.target.value)}
-              required
-              placeholder="dein ADMIN_KEY aus .env"
-            />
-          </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium">
-            Passwort (optional – leer lassen ⇒ Temp-Passwort wird generiert)
+            Bewerber-Email (muss existieren) *
           </label>
+          <input
+            type="email"
+            className="w-full border rounded px-3 py-2"
+            value={applicantEmail}
+            onChange={(e) => setApplicantEmail(e.target.value)}
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">Admin-Key *</label>
+          <input
+            className="w-full border rounded px-3 py-2"
+            value={adminKey}
+            onChange={(e) => setAdminKey(e.target.value)}
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">Passwort (optional)</label>
           <input
             className="w-full border rounded px-3 py-2"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder=""
           />
         </div>
 
@@ -209,19 +154,6 @@ export default function AdminCreateTeacherPage() {
           {loading ? "Anlegen…" : "Lehrer anlegen"}
         </button>
       </form>
-
-      <div className="mt-6">
-        <a
-          className="text-sm text-gray-600 underline"
-          href="/admin/login"
-          title="Abmelden"
-          onClick={() => {
-            // nur ein Link – Logout machst du ggf. über /api/admin/logout
-          }}
-        >
-          Logout
-        </a>
-      </div>
     </div>
   );
 }

@@ -11,96 +11,97 @@ import interactionPlugin from "@fullcalendar/interaction";
 type Booking = {
   id: string;
   start: string;
-  end: string | null;
-  student: {
+  end: string;
+  status: string;
+  student?: {
     name: string | null;
     email: string;
-  };
+  } | null;
 };
 
 export default function TeacherDashboard() {
   const { data: session, status } = useSession();
-
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // -------------------------------
-  // 🔹 BOOKINGS LADEN
-  // -------------------------------
+  // --- BUCHUNGEN LADEN ---
   useEffect(() => {
     if (status === "loading") return;
-    if (!session?.user?.id) return;
+    if (!session?.user?.id) {
+      setError("Nicht eingeloggt.");
+      setLoading(false);
+      return;
+    }
 
     async function load() {
       try {
-        setError(null);
-
         const res = await fetch(
           `/api/bookings/teacher?teacherId=${session.user.id}`,
           { cache: "no-store" }
         );
-
-        const data = await res.json().catch(() => null);
+        const data = await res.json();
 
         if (!res.ok) {
-          throw new Error(data?.error || `Fehler ${res.status}`);
+          throw new Error(data?.error || "Fehler beim Laden");
         }
 
         setBookings(data.bookings || []);
-      } catch (e: any) {
-        console.error("Dashboard Fehler:", e);
-        setError(e?.message ?? "Fehler beim Laden der Termine.");
+      } catch (err: any) {
+        setError(err.message);
       } finally {
         setLoading(false);
       }
     }
 
     load();
-  }, [session, status]);
+  }, [session?.user?.id, status]);
 
-  // -------------------------------
-  // 🔹 EVENTS FÜR FULLCALENDAR
-  // -------------------------------
+  // --- EVENTS ERSTELLEN ---
   const events = bookings.map((b) => ({
     id: b.id,
-    title: `Termin mit ${b.student.name ?? b.student.email}`,
+    title:
+      (b.student?.name || b.student?.email || "Termin") +
+      (b.status === "pending" ? " (offen)" : ""),
     start: b.start,
-    end: b.end ?? undefined,
-    backgroundColor: "#3b82f6",
-    borderColor: "#1d4ed8",
-    textColor: "white",
+    end: b.end,
+    allDay: false,              // ⬅⬅⬅ WICHTIG!!!
+    display: "block",
   }));
 
-  // -------------------------------
-  // 🔹 UI
-  // -------------------------------
   return (
-    <main className="p-10">
-      <h1 className="text-3xl font-bold mb-6">Lehrer-Dashboard</h1>
+    <main className="min-h-screen bg-gray-50 px-6 py-8">
+      <h1 className="text-2xl font-bold mb-4">Lehrer-Dashboard</h1>
 
-      <h2 className="text-xl font-semibold mb-4">Kalender</h2>
+      {error && <p className="text-red-600 mb-4">{error}</p>}
 
       {loading && <p>Lade Kalender…</p>}
-      {error && <p className="text-red-600">{error}</p>}
 
-      {!loading && !error && (
-        <div className="bg-white p-4 rounded-xl shadow border">
-          <FullCalendar
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            locale="de"
-            height="auto"
-            events={events}
-            eventDisplay="block"
-            editable={false}
-            headerToolbar={{
-              left: "today prev,next",
-              center: "title",
-              right: "dayGridMonth,timeGridWeek,timeGridDay",
-            }}
-          />
-        </div>
+      {!loading && (
+        <FullCalendar
+          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+          initialView="timeGridWeek"
+          headerToolbar={{
+            left: "prev,next today",
+            center: "title",
+            right: "dayGridMonth,timeGridWeek,timeGridDay",
+          }}
+          events={events}
+          allDaySlot={false}
+          slotMinTime="08:00:00"
+          slotMaxTime="20:00:00"
+          height="auto"
+          nowIndicator={true}
+          eventContent={(arg) => {
+            return {
+              html: `
+                <div style="padding:4px; font-size:13px;">
+                  <b>${arg.timeText}</b> ${arg.event.title}
+                </div>
+              `,
+            };
+          }}
+        />
       )}
     </main>
   );

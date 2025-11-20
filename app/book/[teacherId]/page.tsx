@@ -13,10 +13,10 @@ type Teacher = {
 
 export default function BookPage() {
   const router = useRouter();
-  const rawPathname = usePathname(); // string | null
+  const rawPathname = usePathname();
   const pathname = rawPathname ?? "";
 
-  // teacherId aus der URL holen: /book/1 -> "1"
+  // teacherId aus der URL holen
   const segments = pathname.split("/");
   const teacherId = segments[segments.length - 1] || "";
 
@@ -62,7 +62,6 @@ export default function BookPage() {
   }, [teacherId]);
 
   function buildDateTime(dateStr: string, timeStr: string): string {
-    // z.B. "2025-06-22" + "20:22" -> "2025-06-22T20:22:00"
     return `${dateStr}T${timeStr}:00`;
   }
 
@@ -85,8 +84,8 @@ export default function BookPage() {
           studentName,
           studentEmail,
           subject,
-          startDate: startsAt,
-          endDate: endsAt,
+          start: startsAt,     // <-- KORREKT
+          end: endsAt,         // <-- KORREKT
           note,
         }),
       });

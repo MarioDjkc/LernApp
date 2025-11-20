@@ -7,15 +7,13 @@ import crypto from "crypto";
 
 export const runtime = "nodejs";
 
+//
+// 🔹 GET – alle Lehrer abrufen
+//
 export async function GET() {
   try {
     const teachers = await prisma.teacher.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        subject: true,
-      },
+      select: { id: true, name: true, email: true, subject: true },
       orderBy: { name: "asc" },
     });
 
@@ -29,29 +27,53 @@ export async function GET() {
   }
 }
 
-// POST bleibt wie bei dir (Admin legt Lehrer an)
+//
+// 🔹 POST – Admin legt einen Lehrer an
+//     NEU: KEINE id mehr nötig, wird automatisch erzeugt!
+//
 export async function POST(req: Request) {
   try {
-    const { id, name, email, subject } = (await req.json()) as {
-      id?: string;
-      name?: string;
-      email?: string;
-      subject?: string;
-    };
+    const { name, email, subject, adminKey } = await req.json();
 
-    if (!id || !name || !email || !subject) {
+    // Admin-Key validieren
+    if (adminKey !== process.env.ADMIN_KEY) {
       return NextResponse.json(
-        { error: "Bitte id, name, email und subject angeben." },
+        { error: "Ungültiger Admin-Key." },
+        { status: 401 }
+      );
+    }
+
+    // Pflichtfelder prüfen
+    if (!name || !email || !subject) {
+      return NextResponse.json(
+        { error: "Bitte name, email und subject angeben." },
         { status: 400 }
       );
     }
 
+    // Existiert schon?
+    const exists = await prisma.teacher.findUnique({
+      where: { email },
+    });
+
+    if (exists) {
+      return NextResponse.json(
+        { error: "Ein Lehrer mit dieser E-Mail existiert bereits." },
+        { status: 400 }
+      );
+    }
+
+    //
+    // 🔹 Temp-Passwort generieren
+    //
     const tempPassword = Math.random().toString(36).slice(-10);
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
+    //
+    // 🔹 Lehrer anlegen (ID automatisch per UUID)
+    //
     const created = await prisma.teacher.create({
       data: {
-        id,
         name,
         email,
         subject,
@@ -60,15 +82,22 @@ export async function POST(req: Request) {
       },
     });
 
+    //
+    // 🔹 Reset-Token erzeugen
+    //
     const token = crypto.randomBytes(32).toString("hex");
+
     await prisma.passwordResetToken.create({
       data: {
         token,
         teacherId: created.id,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h gültig
       },
     });
 
+    //
+    // 🔹 E-Mail senden
+    //
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
@@ -93,9 +122,19 @@ export async function POST(req: Request) {
       `,
     });
 
-    return NextResponse.json({ ok: true, created });
+    //
+    // 🔹 Response
+    //
+    return NextResponse.json({
+      ok: true,
+      created,
+      tempPassword, // Kann angezeigt werden (z. B. im Admin)
+    });
   } catch (err) {
     console.error("POST /api/teachers error:", err);
-    return NextResponse.json({ error: "ServerFehler" }, { status: 500 });
+    return NextResponse.json(
+      { error: "ServerFehler" },
+      { status: 500 }
+    );
   }
 }
