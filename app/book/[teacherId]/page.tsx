@@ -105,7 +105,7 @@ export default function BookPage() {
       setSuccess(true);
 
       setTimeout(() => {
-        router.push("/dashboard");
+        router.push("/student/dashboard");
       }, 1500);
     } catch (e: any) {
       setError(e?.message ?? "Unbekannter Fehler bei der Buchung.");

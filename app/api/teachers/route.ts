@@ -7,10 +7,6 @@ import crypto from "crypto";
 
 export const runtime = "nodejs";
 
-//
-// 🔹 GET  /api/teachers
-// Wird von deinem Dashboard mit fetch("/api/teachers") aufgerufen
-//
 export async function GET() {
   try {
     const teachers = await prisma.teacher.findMany({
@@ -23,7 +19,6 @@ export async function GET() {
       orderBy: { name: "asc" },
     });
 
-    // wichtig: immer gültiges JSON zurückgeben
     return NextResponse.json({ data: teachers });
   } catch (err) {
     console.error("GET /api/teachers error:", err);
@@ -34,10 +29,7 @@ export async function GET() {
   }
 }
 
-//
-// 🔹 POST  /api/teachers
-// Admin legt neuen Lehrer an (mit E-Mail + Reset-Link)
-//
+// POST bleibt wie bei dir (Admin legt Lehrer an)
 export async function POST(req: Request) {
   try {
     const { id, name, email, subject } = (await req.json()) as {
@@ -54,11 +46,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Temporäres Passwort erstellen und hashen
     const tempPassword = Math.random().toString(36).slice(-10);
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-    // Lehrer anlegen
     const created = await prisma.teacher.create({
       data: {
         id,
@@ -70,7 +60,6 @@ export async function POST(req: Request) {
       },
     });
 
-    // Reset-Token (24h gültig)
     const token = crypto.randomBytes(32).toString("hex");
     await prisma.passwordResetToken.create({
       data: {
@@ -80,7 +69,6 @@ export async function POST(req: Request) {
       },
     });
 
-    // Mail-Transport
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
@@ -93,7 +81,6 @@ export async function POST(req: Request) {
 
     const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/teacher/set-password?token=${token}`;
 
-    // E-Mail an Lehrer senden
     await transporter.sendMail({
       from: process.env.FROM_EMAIL,
       to: created.email,

@@ -48,7 +48,7 @@ export default function AuthModal({ onClose }: Props) {
 
         if (result?.ok) {
           onClose();
-          router.push("/dashboard");
+          router.push("/student/dashboard");
           return;
         }
         throw new Error(result?.error || "Automatisches Login nach Registrierung fehlgeschlagen");
@@ -62,7 +62,7 @@ export default function AuthModal({ onClose }: Props) {
 
         if (result?.ok) {
           onClose();
-          router.push("/dashboard");
+          router.push("/student/dashboard");
           return;
         }
         setMsg("E-Mail oder Passwort ist falsch");

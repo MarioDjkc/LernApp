@@ -12,31 +12,24 @@ model User {
   email            String    @unique
   password         String
   name             String?
+  role             String    @default("student")
   stripeCustomerId String?
   createdAt        DateTime  @default(now())
-  bookings         Booking[] @relation("studentBookings")
+
+  bookings Booking[] @relation("studentBookings")
 }
 
 model Teacher {
-  id                 String  @id
+  id                 String   @id @default(uuid())
   name               String
-  email              String  @unique
+  email              String   @unique
   subject            String
   password           String
-  mustChangePassword Boolean @default(true)
+  mustChangePassword Boolean  @default(true)
 
-  bookings            Booking[]            @relation("teacherBookings") // FIX
+  bookings            Booking[]            @relation("teacherBookings")
   passwordResetTokens PasswordResetToken[]
-
-  chat Chat[]
-}
-
-model Student {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  createdAt DateTime @default(now())
+  chat                Chat[]
 }
 
 model Booking {
@@ -57,8 +50,6 @@ model Booking {
   student User    @relation("studentBookings", fields: [studentId], references: [id])
   teacher Teacher @relation("teacherBookings", fields: [teacherId], references: [id], onDelete: Cascade)
 }
-
-
 
 model TeacherApplication {
   id        String   @id @default(cuid())
