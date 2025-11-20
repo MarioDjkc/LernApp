@@ -1,43 +1,32 @@
-import { PrismaClient } from "@prisma/client";
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 async function main() {
   console.log("🌱 Seeding database...");
 
-  await prisma.teacher.createMany({
-    data: [
-      {
-        id: "t1",
-        name: "Anna Weber",
-        email: "anna.weber@example.com",
-        subject: "Mathematik",
-        password: "hashed-passwort-platzhalter",
-        mustChangePassword: true,
-      },
-      {
-        id: "t2",
-        name: "Paul Schmidt",
-        email: "paul.schmidt@example.com",
-        subject: "Englisch",
-        password: "hashed-passwort-platzhalter",
-        mustChangePassword: true,
-      },
-    ],
+  // Beispiel-Lehrer
+  await prisma.teacher.create({
+    data: {
+      id: "1",
+      name: "Simon",
+      email: "kicker2812@gmail.com",
+      subject: "Mathematik",
+      password: "test123",
+      mustChangePassword: false
+    }
   });
 
-  await prisma.teacherApplication.createMany({
-    data: [
-      {
-        name: "Max Bewerber",
-        email: "max.bewerber@example.com",
-        subject: "Physik",
-        letter: "Ich möchte gerne Nachhilfe geben.",
-        filePath: "/uploads/max-bewerbung.pdf",
-      },
-    ],
+  // Beispiel-Schüler
+  await prisma.user.create({
+    data: {
+      id: "u1",
+      email: "test@test.com",
+      password: "test123",
+      name: "Test Schüler"
+    }
   });
 
-  console.log("✅ Seeding complete!");
+  console.log("🌱 Done!");
 }
 
 main()

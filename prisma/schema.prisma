@@ -7,12 +7,14 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-<<<<<<< HEAD
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
+  id               String    @id @default(uuid())
+  email            String    @unique
+  password         String
+  name             String?
+  stripeCustomerId String?
+  createdAt        DateTime  @default(now())
+  bookings         Booking[] @relation("studentBookings")
 }
 
 model Teacher {
@@ -23,8 +25,10 @@ model Teacher {
   password           String
   mustChangePassword Boolean @default(true)
 
-  bookings            Booking[]
+  bookings            Booking[]            @relation("teacherBookings") // FIX
   passwordResetTokens PasswordResetToken[]
+
+  chat Chat[]
 }
 
 model Student {
@@ -33,43 +37,6 @@ model Student {
   password  String
   name      String
   createdAt DateTime @default(now())
-}
-
-
-model Booking {
-  id           String   @id @default(cuid())
-  teacherId    String
-  teacher      Teacher  @relation(fields: [teacherId], references: [id])
-
-  studentName  String
-  studentEmail String
-  subject      String?
-
-  startsAt     DateTime
-  endsAt       DateTime?
-  note         String?
-
-  status       String   @default("REQUESTED")
-  createdAt    DateTime @default(now())
-=======
-model Teacher {
-  id                 String   @id @default(uuid())
-  name               String
-  email              String   @unique
-  subject            String
-  password           String
-  mustChangePassword Boolean  @default(true)
-  bookings           Booking[] @relation("teacherBookings")
-  resetTokens        PasswordResetToken[]
-}
-
-model User {
-  id               String    @id @default(uuid())
-  email            String    @unique
-  name             String?
-  stripeCustomerId String?
-  createdAt        DateTime  @default(now())
-  bookings         Booking[] @relation("studentBookings")
 }
 
 model Booking {
@@ -88,9 +55,10 @@ model Booking {
   createdAt              DateTime @default(now())
 
   student User    @relation("studentBookings", fields: [studentId], references: [id])
-  teacher Teacher @relation("teacherBookings", fields: [teacherId], references: [id])
->>>>>>> 49cbd883ec7f3a154f97aa43a092a8e565b86a62
+  teacher Teacher @relation("teacherBookings", fields: [teacherId], references: [id], onDelete: Cascade)
 }
+
+
 
 model TeacherApplication {
   id        String   @id @default(cuid())
@@ -108,4 +76,24 @@ model PasswordResetToken {
   teacherId String
   teacher   Teacher  @relation(fields: [teacherId], references: [id])
   expiresAt DateTime
+}
+
+model Chat {
+  id           String  @id @default(uuid())
+  teacherId    String
+  studentEmail String
+  bookingId    String?
+
+  teacher  Teacher       @relation(fields: [teacherId], references: [id])
+  messages ChatMessage[]
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  chatId    String
+  sender    String
+  text      String
+  createdAt DateTime @default(now())
+
+  chat Chat @relation(fields: [chatId], references: [id])
 }
