@@ -1,3 +1,8 @@
+
+//
+//  Veraltete Checkout Version
+//
+
 export default function CheckoutPage() {
   async function handleCheckout() {
     const res = await fetch("/api/stripe/webhook/create-checkout-session", {
