@@ -1,6 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
-
+import SessionProviderWrapper from "app/components/SessionProviderWrapper";
 
 export const metadata: Metadata = {
   title: "LernApp – Nachhilfetermine einfach buchen",
@@ -11,7 +11,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="de">
-      <body className="bg-gray-50 text-gray-900 antialiased">{children}</body>
+      <body className="bg-gray-50 text-gray-900 antialiased">
+        <SessionProviderWrapper>
+          {children}
+        </SessionProviderWrapper>
+      </body>
     </html>
   );
 }
