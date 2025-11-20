@@ -1,10 +1,9 @@
-// app/api/bookings/teacher/route.ts
 import { NextResponse } from "next/server";
+import prisma from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
-import prisma from "@/app/lib/prisma";
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -21,7 +20,6 @@ export async function GET(req: Request) {
       orderBy: { start: "asc" },
     });
 
-    // Kalenderformat
     const events = bookings.map((b) => ({
       id: b.id,
       title: `Schüler: ${b.student.name ?? b.student.email}`,
@@ -29,9 +27,9 @@ export async function GET(req: Request) {
       end: b.end,
     }));
 
-    return NextResponse.json({ bookings, events });
+    return NextResponse.json({ events, bookings });
   } catch (err) {
-    console.error("GET /api/bookings/teacher error", err);
+    console.error("GET /api/bookings/teacher error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }
 }

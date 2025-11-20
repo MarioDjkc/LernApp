@@ -1,100 +1,41 @@
 // app/api/bookings/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/pages/api/auth/[...nextauth]";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Nicht eingeloggt" }, { status: 401 });
+    }
 
-    const {
-      teacherId,
-      studentName,
-      studentEmail,
-      subject,
-      startDate,
-      endDate,
-      note,
-    } = body;
+    const studentId = session.user.id;
+    const { teacherId, start, end, priceCents } = await req.json();
 
-    if (!teacherId || !studentName || !studentEmail || !startDate) {
+    if (!teacherId || !start) {
       return NextResponse.json(
-        { error: "Ungültige oder fehlende Daten" },
+        { error: "teacherId und start sind erforderlich" },
         { status: 400 }
       );
     }
 
-    const start = new Date(startDate);
-    const end = endDate ? new Date(endDate) : null;
-
-    if (isNaN(start.getTime()) || (endDate && isNaN(end!.getTime()))) {
-      return NextResponse.json(
-        { error: "Ungültige Datumsangaben" },
-        { status: 400 }
-      );
-    }
-
-    // 🔹 Student erstellen oder verbinden (User-Tabelle)
-    const student = await prisma.user.upsert({
-      where: { email: studentEmail },
-      update: {},
-      create: {
-        name: studentName,
-        email: studentEmail,
-        password: "temp123", // nur Platzhalter
-      },
-    });
-
-    // 🔹 Booking erstellen (Booking hat studentId + teacherId im Schema)
     const booking = await prisma.booking.create({
       data: {
-        start,
-        end,
-        priceCents: 4000,
+        studentId,
+        teacherId,
+        start: new Date(start),
+        end: end ? new Date(end) : new Date(new Date(start).getTime() + 60 * 60 * 1000), // default 1h
+        priceCents: priceCents ?? 2500,
         currency: "eur",
         status: "pending",
-        teacher: {
-          connect: { id: teacherId },
-        },
-        student: {
-          connect: { id: student.id },
-        },
       },
     });
 
-    // 🔹 Chat erstellen oder finden
-    // Chat-Modell hat KEIN studentId, sondern studentEmail!
-    let chat = await prisma.chat.findFirst({
-      where: {
-        teacherId: teacherId,
-        studentEmail: studentEmail,
-      },
-    });
-
-    if (!chat) {
-      chat = await prisma.chat.create({
-        data: {
-          teacherId: teacherId,
-          studentEmail: studentEmail,
-          bookingId: booking.id,
-        },
-      });
-    }
-
-    // 🔹 Systemnachricht in den Chat
-    await prisma.chatMessage.create({
-      data: {
-        chatId: chat.id,
-        sender: "system",
-        text: `Neue Terminanfrage für den ${start.toLocaleString("de-DE")}`,
-      },
-    });
-
-    return NextResponse.json({ booking, chat }, { status: 200 });
+    return NextResponse.json({ ok: true, booking });
   } catch (err) {
-    console.error("[BOOKING_ERROR]", err);
-    return NextResponse.json(
-      { error: "Serverfehler bei der Terminbuchung" },
-      { status: 500 }
-    );
+    console.error("POST /api/bookings error:", err);
+    return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }
 }
