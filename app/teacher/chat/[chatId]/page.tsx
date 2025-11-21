@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useParams } from "next/navigation";
 
 export default function TeacherChatPage() {
+  const { chatId } = useParams();  // <-- Dynamisch aus der URL
   const { data: session } = useSession();
-
-  // TODO: später dynamisch setzen
-  const chatId = "CHAT_ID_HIER_EINSETZEN";
 
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -19,12 +18,14 @@ export default function TeacherChatPage() {
     setMessages(data.messages || []);
   }
 
-  // Alle 2 Sekunden neu laden
+  // Alle 2 Sekunden aktualisieren
   useEffect(() => {
+    if (!chatId) return;
+
     loadMessages();
     const interval = setInterval(loadMessages, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [chatId]);
 
   async function sendMessage(e: any) {
     e.preventDefault();
