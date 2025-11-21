@@ -7,6 +7,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const account = await stripe.accounts.create({
     type: "express",
+    settings: {
+      payouts: {
+        schedule: {
+          interval: "manual"  // ⭐ KEINE automatische Auszahlungen
+        }
+      }
+    }
   });
 
   //DB

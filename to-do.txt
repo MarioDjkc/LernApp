@@ -16,7 +16,7 @@ Allgemein:
     - DSGVO, Cookies, Nginx, AGBs, etc.
     - Namen der Seite bestimmen
     - Fyler erstellen, Visitenkarten
-    - 
+    - WICHTIG: Beim Live gehen: Stripe Webhook testen, Cronjob für pages/api/cron einrichten
 
 ================================
 Work in Progress
@@ -38,7 +38,12 @@ Schüler:
 Lehrer:
     - Funktionalität für das akzeptieren eines Termins([id].tsx)
     - Api zum Erstellen eines Stripe-Accounts (create-connect-account.ts und onboarding-link.ts)
-    - Api zum Auszahlen an den Lehrer (payout.ts)
-    - 
+    - Api zum Auszahlen an den Lehrer (payout.ts)(wurde ersetzt)
+    - Cronjob für Lehrer, damit 15 Tage nach Termin Geld ausgezahlt wird.
+      Falls Lehrer noch keinen Stripe-Connect-Account besitzt, verzögert die Überweisung.
+      Für UI-Elemente zum Einbauen (MARIO DES IS FIA DI!!!) bei pages/teachers/test-dashboard, pages/api/cron/payouts.ts
+    - Guthaben-Anzeige im Test-Dashboard hinzugefügt und die Funktion das bestehende Guthaben 
+      auf das Bankkonto auszahlen zu können.
+    -
 Allgemein:
     - 
