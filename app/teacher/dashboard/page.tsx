@@ -1,3 +1,4 @@
+// app/teacher/dashboard/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -25,39 +26,48 @@ export default function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // --- BUCHUNGEN LADEN ---
   useEffect(() => {
     if (status === "loading") return;
-    if (!session?.user?.id) {
-      setError("Nicht eingeloggt.");
+
+    // ohne E-Mail können wir den Lehrer nicht finden
+    if (!session?.user?.email) {
+      setError("Kein Lehrer eingeloggt (E-Mail fehlt in der Session).");
       setLoading(false);
       return;
     }
 
     async function load() {
       try {
+        setError(null);
+        setLoading(true);
+
         const res = await fetch(
-          `/api/bookings/teacher?teacherId=${session.user.id}`,
+          `/api/bookings/teacher?email=${encodeURIComponent(
+            session.user.email
+          )}`,
           { cache: "no-store" }
         );
-        const data = await res.json();
+
+        const data = await res.json().catch(() => null);
 
         if (!res.ok) {
-          throw new Error(data?.error || "Fehler beim Laden");
+          throw new Error(data?.error || `Fehler ${res.status}`);
         }
 
+        console.log("Teacher bookings:", data.bookings);
         setBookings(data.bookings || []);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (e: any) {
+        console.error("Dashboard Fehler:", e);
+        setError(e?.message ?? "Fehler beim Laden der Termine.");
       } finally {
         setLoading(false);
       }
     }
 
     load();
-  }, [session?.user?.id, status]);
+  }, [session?.user?.email, status]);
 
-  // --- EVENTS ERSTELLEN ---
+  // Buchungen zu FullCalendar-Events mappen
   const events = bookings.map((b) => ({
     id: b.id,
     title:
@@ -65,15 +75,18 @@ export default function TeacherDashboard() {
       (b.status === "pending" ? " (offen)" : ""),
     start: b.start,
     end: b.end,
-    allDay: false,              // ⬅⬅⬅ WICHTIG!!!
-    display: "block",
+    allDay: false,
   }));
 
   return (
     <main className="min-h-screen bg-gray-50 px-6 py-8">
       <h1 className="text-2xl font-bold mb-4">Lehrer-Dashboard</h1>
 
-      {error && <p className="text-red-600 mb-4">{error}</p>}
+      {error && (
+        <p className="text-red-600 mb-4">
+          {error}
+        </p>
+      )}
 
       {loading && <p>Lade Kalender…</p>}
 
@@ -90,17 +103,8 @@ export default function TeacherDashboard() {
           allDaySlot={false}
           slotMinTime="08:00:00"
           slotMaxTime="20:00:00"
-          height="auto"
           nowIndicator={true}
-          eventContent={(arg) => {
-            return {
-              html: `
-                <div style="padding:4px; font-size:13px;">
-                  <b>${arg.timeText}</b> ${arg.event.title}
-                </div>
-              `,
-            };
-          }}
+          height="auto"
         />
       )}
     </main>

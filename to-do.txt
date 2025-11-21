@@ -13,7 +13,7 @@ Lehrer:
 Allgemein:
     - Variable für URL in .env standadisieren. Damit wir gleiche Variablen verwenden
     - DSGVO, Cookies, Nginx, AGBs, etc.
-    - Admin-Account, mit zugriff auf Datenbank-Tabellen und eigenem Dashboard
+    - 
     -
 
 ================================
@@ -25,6 +25,7 @@ Lehrer:
     -
 Allgemein:
     - Kommentare hinzufügen
+    - Admin-Account, mit zugriff auf Datenbank-Tabellen und eigenem Dashboard
 ================================
 Fertig
 ================================
