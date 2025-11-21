@@ -1,3 +1,4 @@
+// app/teacher/dashboard/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -80,10 +81,15 @@ export default function TeacherDashboard() {
           throw new Error(data?.error || `Fehler ${res.status}`);
         }
 
+        console.log("Teacher bookings:", data.bookings);
         setBookings(data.bookings || []);
       } catch (e: any) {
         console.error("Dashboard Fehler:", e);
+<<<<<<< HEAD
         setError(e?.message ?? "Fehler beim Laden.");
+=======
+        setError(e?.message ?? "Fehler beim Laden der Termine.");
+>>>>>>> 61ca6eef02bc44b3765c662bf6d8c3ad26366315
       } finally {
         setLoading(false);
       }
@@ -92,9 +98,13 @@ export default function TeacherDashboard() {
     load();
   }, [session?.user?.email, status]);
 
+<<<<<<< HEAD
   // ================================
   // 📌 EVENTS FÜR FULLCALENDAR
   // ================================
+=======
+  // Buchungen zu FullCalendar-Events mappen
+>>>>>>> 61ca6eef02bc44b3765c662bf6d8c3ad26366315
   const events = bookings.map((b) => ({
     id: b.id,
     title:
@@ -103,14 +113,26 @@ export default function TeacherDashboard() {
     start: b.start,
     end: b.end,
     allDay: false,
+<<<<<<< HEAD
     extendedProps: b, // wichtig!
+=======
+>>>>>>> 61ca6eef02bc44b3765c662bf6d8c3ad26366315
   }));
 
   return (
     <main className="min-h-screen bg-gray-50 px-6 py-8">
       <h1 className="text-2xl font-bold mb-4">Lehrer-Dashboard</h1>
 
+<<<<<<< HEAD
       {error && <p className="text-red-600 mb-4">{error}</p>}
+=======
+      {error && (
+        <p className="text-red-600 mb-4">
+          {error}
+        </p>
+      )}
+
+>>>>>>> 61ca6eef02bc44b3765c662bf6d8c3ad26366315
       {loading && <p>Lade Kalender…</p>}
 
       {!loading && (
@@ -128,6 +150,7 @@ export default function TeacherDashboard() {
           slotMaxTime="20:00:00"
           nowIndicator={true}
           height="auto"
+<<<<<<< HEAD
           // ===============================
           // 📌 TERMIN-INHALT IM KALENDER
           // ===============================
@@ -189,6 +212,8 @@ export default function TeacherDashboard() {
               </div>
             );
           }}
+=======
+>>>>>>> 61ca6eef02bc44b3765c662bf6d8c3ad26366315
         />
       )}
     </main>

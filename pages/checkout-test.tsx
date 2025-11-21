@@ -4,7 +4,6 @@ import CheckoutButton from "../src/components/CheckoutButton";
 //  Page zum Austesten der Component: CheckoutButton
 //  
 
-
 export default function CheckoutTestPage() {
   return (
     <div style={{ padding: 40 }}>
