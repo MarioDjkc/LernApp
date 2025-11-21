@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
 
-// Nachrichten laden
+// 🔹 Nachrichten abrufen
 export async function GET(
   req: Request,
   { params }: { params: { chatId: string } }
@@ -14,15 +14,12 @@ export async function GET(
 
     return NextResponse.json({ messages });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Fehler beim Laden der Nachrichten" },
-      { status: 500 }
-    );
+    console.error("GET /api/chats/[chatId]/messages error:", err);
+    return NextResponse.json({ error: "Fehler beim Laden" }, { status: 500 });
   }
 }
 
-// Nachricht senden
+// 🔹 Nachricht senden
 export async function POST(
   req: Request,
   { params }: { params: { chatId: string } }
@@ -30,14 +27,11 @@ export async function POST(
   try {
     const { sender, text } = await req.json();
 
-    if (!sender || !text) {
-      return NextResponse.json(
-        { error: "sender & text benötigt" },
-        { status: 400 }
-      );
+    if (!text) {
+      return NextResponse.json({ error: "Text fehlt" }, { status: 400 });
     }
 
-    const message = await prisma.chatMessage.create({
+    const msg = await prisma.chatMessage.create({
       data: {
         chatId: params.chatId,
         sender,
@@ -45,12 +39,9 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ message });
+    return NextResponse.json({ ok: true, message: msg });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Fehler beim Senden" },
-      { status: 500 }
-    );
+    console.error("POST /api/chats/[chatId]/messages error:", err);
+    return NextResponse.json({ error: "Fehler beim Senden" }, { status: 500 });
   }
 }
