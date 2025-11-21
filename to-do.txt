@@ -8,13 +8,15 @@ Schüler:
 Lehrer:
     - In DB vllt anstatt von einem Subject, mehrere, also zum Array machen.
     - Sollte Schulstufen angeben können, welche er/sie unterrichten kann.
+    - Erinnerung an Nachhilfe Termin 1 Tag vor Termin oder so
     - 
 
 Allgemein:
     - Variable für URL in .env standadisieren. Damit wir gleiche Variablen verwenden
     - DSGVO, Cookies, Nginx, AGBs, etc.
+    - Namen der Seite bestimmen
+    - Fyler erstellen, Visitenkarten
     - 
-    -
 
 ================================
 Work in Progress
