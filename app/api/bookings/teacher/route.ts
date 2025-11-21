@@ -5,18 +5,32 @@ import prisma from "@/app/lib/prisma";
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const teacherId = searchParams.get("teacherId");
 
-    if (!teacherId) {
+    // wir arbeiten jetzt über die Lehrer-E-Mail
+    const email = searchParams.get("email");
+
+    if (!email) {
       return NextResponse.json(
-        { error: "teacherId fehlt" },
+        { error: "email fehlt" },
         { status: 400 }
       );
     }
 
-    // 🔹 Hier wird WIRKLICH die DB gelesen (deine Booking-Tabelle)
+    // Lehrer anhand der E-Mail finden
+    const teacher = await prisma.teacher.findUnique({
+      where: { email },
+    });
+
+    if (!teacher) {
+      return NextResponse.json(
+        { error: "Keinen Lehrer mit dieser E-Mail gefunden." },
+        { status: 404 }
+      );
+    }
+
+    // Jetzt wirklich die Booking-Tabelle lesen
     const bookings = await prisma.booking.findMany({
-      where: { teacherId },
+      where: { teacherId: teacher.id },
       include: {
         student: {
           select: { name: true, email: true },
