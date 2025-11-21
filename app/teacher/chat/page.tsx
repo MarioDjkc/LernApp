@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 
-export default function TeacherChatPage() {
+export default function TeacherChatListPage() {
   const { data: session } = useSession();
   const [chats, setChats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -12,9 +13,7 @@ export default function TeacherChatPage() {
     if (!session?.user?.email) return;
 
     async function loadChats() {
-      const res = await fetch(
-        `/api/teacher/chats?email=${session.user.email}`
-      );
+      const res = await fetch(`/api/teacher/chat?email=${session.user.email}`);
       const data = await res.json();
       setChats(data.chats || []);
       setLoading(false);
@@ -23,9 +22,7 @@ export default function TeacherChatPage() {
     loadChats();
   }, [session?.user?.email]);
 
-  if (loading) {
-    return <p className="p-6">Chats werden geladen…</p>;
-  }
+  if (loading) return <p className="p-6">Chats werden geladen…</p>;
 
   return (
     <main className="p-6">
@@ -37,13 +34,14 @@ export default function TeacherChatPage() {
 
       <div className="space-y-4">
         {chats.map((chat: any) => (
-          <div
+          <Link
             key={chat.id}
-            className="p-4 border rounded shadow hover:bg-gray-100 cursor-pointer"
+            href={`/teacher/chat/${chat.id}`}
+            className="block p-4 border rounded shadow hover:bg-gray-100"
           >
             <p className="font-semibold">{chat.studentEmail}</p>
             <p className="text-sm text-gray-500">Chat-ID: {chat.id}</p>
-          </div>
+          </Link>
         ))}
       </div>
     </main>

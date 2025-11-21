@@ -1,7 +1,7 @@
+// app/api/chat/[chatId]/messages/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
 
-// 🔹 Nachrichten abrufen
 export async function GET(
   req: Request,
   { params }: { params: { chatId: string } }
@@ -14,22 +14,17 @@ export async function GET(
 
     return NextResponse.json({ messages });
   } catch (err) {
-    console.error("GET /api/chats/[chatId]/messages error:", err);
+    console.error("GET messages error:", err);
     return NextResponse.json({ error: "Fehler beim Laden" }, { status: 500 });
   }
 }
 
-// 🔹 Nachricht senden
 export async function POST(
   req: Request,
   { params }: { params: { chatId: string } }
 ) {
   try {
     const { sender, text } = await req.json();
-
-    if (!text) {
-      return NextResponse.json({ error: "Text fehlt" }, { status: 400 });
-    }
 
     const msg = await prisma.chatMessage.create({
       data: {
@@ -39,9 +34,9 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ ok: true, message: msg });
+    return NextResponse.json({ message: msg });
   } catch (err) {
-    console.error("POST /api/chats/[chatId]/messages error:", err);
+    console.error("POST message error:", err);
     return NextResponse.json({ error: "Fehler beim Senden" }, { status: 500 });
   }
 }

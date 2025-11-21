@@ -1,27 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
 
 export default function TeacherChatPage() {
-  const { chatId } = useParams();  // <-- Dynamisch aus der URL
-  const { data: session } = useSession();
-
+  const { chatId } = useParams();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
 
-  // Nachrichten laden
   async function loadMessages() {
     const res = await fetch(`/api/chat/${chatId}/messages`);
     const data = await res.json();
     setMessages(data.messages || []);
   }
 
-  // Alle 2 Sekunden aktualisieren
   useEffect(() => {
     if (!chatId) return;
-
     loadMessages();
     const interval = setInterval(loadMessages, 2000);
     return () => clearInterval(interval);
@@ -48,7 +42,6 @@ export default function TeacherChatPage() {
     <div className="max-w-2xl mx-auto bg-white rounded-xl shadow p-6 h-[80vh] flex flex-col">
       <h1 className="text-xl font-bold mb-4">Chat</h1>
 
-      {/* Nachrichtenliste */}
       <div className="flex-1 overflow-y-auto space-y-3 border rounded p-4 bg-gray-50">
         {messages.map((msg: any) => (
           <div
@@ -67,7 +60,6 @@ export default function TeacherChatPage() {
         ))}
       </div>
 
-      {/* Nachricht senden */}
       <form onSubmit={sendMessage} className="flex gap-2 mt-4">
         <input
           className="flex-1 border rounded-lg px-3 py-2"
