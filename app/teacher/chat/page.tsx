@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 
-export default function TeacherChatListPage() {
+export default function ChatListPage() {
   const { data: session } = useSession();
   const [chats, setChats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -13,7 +13,9 @@ export default function TeacherChatListPage() {
     if (!session?.user?.email) return;
 
     async function loadChats() {
-      const res = await fetch(`/api/teacher/chat?email=${session.user.email}`);
+      const res = await fetch(
+        `/api/teacher/chats?email=${session.user.email}`
+      );
       const data = await res.json();
       setChats(data.chats || []);
       setLoading(false);
@@ -22,28 +24,45 @@ export default function TeacherChatListPage() {
     loadChats();
   }, [session?.user?.email]);
 
-  if (loading) return <p className="p-6">Chats werden geladen…</p>;
-
   return (
-    <main className="p-6">
-      <h1 className="text-3xl font-bold mb-6">Chats</h1>
+    <>
+      {/* LEFT SIDEBAR */}
+      <div className="w-[30%] h-full bg-white border-r border-gray-300 flex flex-col">
 
-      {chats.length === 0 && (
-        <p className="text-gray-500">Noch keine Chats vorhanden.</p>
-      )}
+        {/* HEADER */}
+        <div className="h-[60px] bg-[#075E54] text-white flex items-center px-4 text-lg font-semibold shadow">
+          Lehrer Chat
+        </div>
 
-      <div className="space-y-4">
-        {chats.map((chat: any) => (
-          <Link
-            key={chat.id}
-            href={`/teacher/chat/${chat.id}`}
-            className="block p-4 border rounded shadow hover:bg-gray-100"
-          >
-            <p className="font-semibold">{chat.studentEmail}</p>
-            <p className="text-sm text-gray-500">Chat-ID: {chat.id}</p>
-          </Link>
-        ))}
+        {/* Chats */}
+        <div className="flex-1 overflow-y-auto">
+          {loading && (
+            <p className="p-4 text-gray-500">Chats werden geladen…</p>
+          )}
+
+          {chats.map((chat) => (
+            <Link
+              key={chat.id}
+              href={`/teacher/chat/${chat.id}`}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 cursor-pointer border-b"
+            >
+              <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-xl font-semibold">
+                {chat.studentEmail.charAt(0).toUpperCase()}
+              </div>
+
+              <div>
+                <p className="font-semibold">{chat.studentEmail}</p>
+                <p className="text-xs text-gray-500">Chat öffnen</p>
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
-    </main>
+
+      {/* RIGHT SIDE EMPTY */}
+      <div className="flex-1 flex items-center justify-center text-gray-400 text-xl">
+        Wähle einen Chat aus
+      </div>
+    </>
   );
 }

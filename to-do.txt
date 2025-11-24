@@ -2,14 +2,14 @@ Schüler:
     - Beim Buchen: Start und Ende von Nachhilfe eingeben(daraus wird sich der Preis berechnet)
     - Profil-Ansicht und möglichkeit Daten zu ändern(z.B. Name, Passwort, etc.)
     - Dem Schüler/Elternteil beim Buchen klarmachen, dass Karte erst belastet, wenn Lehere akzeptiert:
-    - 
-    - 
+    - Chatbox für kommunikation mit lehrer, wenn termin zugesagt wurde
+    - Ansicht mit freien terminen des Lehrers und nicht irgendwelche Uhrzeiten eingeben
 
 Lehrer:
     - In DB vllt anstatt von einem Subject, mehrere, also zum Array machen.
     - Sollte Schulstufen angeben können, welche er/sie unterrichten kann.
     - Erinnerung an Nachhilfe Termin 1 Tag vor Termin oder so
-    - 
+    - Im Kalender freie Termine eintragen
 
 Allgemein:
     - Variable für URL in .env standadisieren. Damit wir gleiche Variablen verwenden
@@ -22,10 +22,12 @@ Allgemein:
 Work in Progress
 ================================
 Schüler:
-    -  
+    - Freie Termine des lehrers anzeigen
+    - Chatbox mit lehrer wenn termin bestätig wurde
     -
-Lehrer:
-    -
+Lehrer: 
+    - Freie Termine anlegen zu können
+    - Chatbox, wenn termin bestätigt wurde schön machen
 Allgemein:
     - Kommentare hinzufügen
     - Admin-Account, mit zugriff auf Datenbank-Tabellen und eigenem Dashboard
