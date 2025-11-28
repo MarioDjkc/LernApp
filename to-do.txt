@@ -17,6 +17,8 @@ Allgemein:
     - Namen der Seite bestimmen
     - Fyler erstellen, Visitenkarten
     - WICHTIG: Beim Live gehen: Stripe Webhook testen, Cronjob für pages/api/cron einrichten
+    - Seite Responsive machen
+    - Passwörter encrypted speichern
 
 ================================
 Work in Progress
