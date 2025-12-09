@@ -8,7 +8,10 @@ export async function GET(req: Request) {
     const email = searchParams.get("email");
 
     if (!email) {
-      return NextResponse.json({ error: "Email fehlt" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Email fehlt" },
+        { status: 400 }
+      );
     }
 
     const teacher = await prisma.teacher.findUnique({
@@ -16,17 +19,23 @@ export async function GET(req: Request) {
     });
 
     if (!teacher) {
-      return NextResponse.json({ error: "Lehrer nicht gefunden" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Lehrer nicht gefunden" },
+        { status: 404 }
+      );
     }
 
     const chats = await prisma.chat.findMany({
       where: { teacherId: teacher.id },
-      orderBy: { id: "desc" },
+      orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json({ chats });
   } catch (err) {
     console.error("GET /api/teacher/chat error:", err);
-    return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Serverfehler" },
+      { status: 500 }
+    );
   }
 }
