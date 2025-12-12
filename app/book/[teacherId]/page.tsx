@@ -1,261 +1,204 @@
-// app/book/[teacherId]/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 type Teacher = {
-  id: string | number;
+  id: string;
   name: string;
-  email?: string;
   subject: string;
+};
+
+type Slot = {
+  id: string;
+  date: string;
+  start: string;
+  end: string;
 };
 
 export default function BookPage() {
   const router = useRouter();
-  const rawPathname = usePathname();
-  const pathname = rawPathname ?? "";
-
-  // teacherId aus der URL holen
-  const segments = pathname.split("/");
-  const teacherId = segments[segments.length - 1] || "";
+  const pathname = usePathname();
+  const teacherId = pathname.split("/").pop() || "";
 
   const [teacher, setTeacher] = useState<Teacher | null>(null);
-  const [loadingTeacher, setLoadingTeacher] = useState(true);
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   const [studentName, setStudentName] = useState("");
   const [studentEmail, setStudentEmail] = useState("");
-  const [subject, setSubject] = useState("");
-  const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
   const [note, setNote] = useState("");
 
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // -----------------------------
   // Lehrer laden
+  // -----------------------------
   useEffect(() => {
-    if (!teacherId) return;
-
-    (async () => {
-      try {
-        const res = await fetch("/api/teachers");
-        const json = await res.json();
-
-        const list: Teacher[] = json.data ?? json;
-        const found = list.find((t) => String(t.id) === String(teacherId));
-
-        if (!found) {
-          setError("Lehrer wurde nicht gefunden.");
-        } else {
-          setTeacher(found);
-          setSubject(found.subject ?? "");
-        }
-      } catch (e: any) {
-        setError(e?.message ?? "Fehler beim Laden des Lehrers.");
-      } finally {
-        setLoadingTeacher(false);
-      }
-    })();
+    async function loadTeacher() {
+      const res = await fetch("/api/teachers");
+      const json = await res.json();
+      const found = (json.data ?? json).find(
+        (t: Teacher) => String(t.id) === String(teacherId)
+      );
+      setTeacher(found ?? null);
+    }
+    loadTeacher();
   }, [teacherId]);
 
-  function buildDateTime(dateStr: string, timeStr: string): string {
-    return `${dateStr}T${timeStr}:00`;
-  }
+  // -----------------------------
+  // Slots laden
+  // -----------------------------
+  useEffect(() => {
+    async function loadSlots() {
+      const res = await fetch(
+        `/api/student/availability?teacherId=${teacherId}`
+      );
+      const json = await res.json();
+      setSlots(json.slots || []);
+      setLoading(false);
+    }
+    loadSlots();
+  }, [teacherId]);
 
+  // -----------------------------
+  // Buchen
+  // -----------------------------
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!teacher) return;
+    if (!selectedSlot) return;
 
-    setError(null);
     setSubmitting(true);
+    setError(null);
 
     try {
-      const startsAt = buildDateTime(date, startTime);
-      const endsAt = endTime ? buildDateTime(date, endTime) : null;
-
-      const res = await fetch("/api/bookings", {
+      const res = await fetch("/api/bookings/student", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          teacherId: teacher.id,
+          availabilityId: selectedSlot,
           studentName,
           studentEmail,
-          subject,
-          start: startsAt,     // <-- KORREKT
-          end: endsAt,         // <-- KORREKT
           note,
         }),
       });
 
-      let json: any = null;
-      try {
-        json = await res.json();
-      } catch {
-        json = null;
-      }
+      const json = await res.json();
 
       if (!res.ok) {
-        throw new Error(json?.error || `Fehler bei der Terminbuchung (${res.status})`);
+        throw new Error(json?.error || "Fehler bei der Buchung");
       }
 
+      // ✅ SLOT SOFORT ENTFERNEN
+      setSlots((prev) => prev.filter((s) => s.id !== selectedSlot));
+      setSelectedSlot(null);
       setSuccess(true);
 
       setTimeout(() => {
         router.push("/student/dashboard");
       }, 1500);
     } catch (e: any) {
-      setError(e?.message ?? "Unbekannter Fehler bei der Buchung.");
+      setError(e?.message || "Unbekannter Fehler");
     } finally {
       setSubmitting(false);
     }
   }
 
-  const disabled =
-    !teacher ||
-    !studentName ||
-    !studentEmail ||
-    !date ||
-    !startTime ||
-    submitting;
-
   return (
     <main className="min-h-screen bg-[#f5f7fa] flex justify-center px-4 py-10">
       <div className="w-full max-w-xl bg-white rounded-2xl shadow-md p-8">
-        {loadingTeacher && <p>Lade Lehrer…</p>}
-        {!loadingTeacher && !teacher && (
-          <p className="text-red-500">Lehrer wurde nicht gefunden.</p>
-        )}
+        {!teacher && <p>Lehrer wird geladen…</p>}
 
         {teacher && (
           <>
             <h1 className="text-2xl font-bold mb-2">
-              Termin vereinbaren mit {teacher.name}
+              Termin mit {teacher.name}
             </h1>
             <p className="text-gray-600 mb-6">
-              Fach: <span className="font-medium">{teacher.subject}</span>
+              Fach: <b>{teacher.subject}</b>
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Name */}
+              <input
+                placeholder="Dein Name"
+                value={studentName}
+                onChange={(e) => setStudentName(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+                required
+              />
+
+              {/* Email */}
+              <input
+                placeholder="Deine E-Mail"
+                type="email"
+                value={studentEmail}
+                onChange={(e) => setStudentEmail(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+                required
+              />
+
+              {/* Slots */}
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Dein Name
-                </label>
-                <input
-                  type="text"
-                  value={studentName}
-                  onChange={(e) => setStudentName(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  required
-                />
-              </div>
+                <h3 className="font-semibold mb-2">Freie Termine</h3>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Deine E-Mail
-                </label>
-                <input
-                  type="email"
-                  value={studentEmail}
-                  onChange={(e) => setStudentEmail(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  required
-                />
-              </div>
+                {loading && <p>Lade Slots…</p>}
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Fach</label>
-                <input
-                  type="text"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                />
-              </div>
+                {!loading && slots.length === 0 && (
+                  <p className="text-gray-500">
+                    Keine freien Termine verfügbar.
+                  </p>
+                )}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Datum
-                  </label>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Startzeit
-                  </label>
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Endzeit (optional)
-                  </label>
-                  <input
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  />
+                <div className="space-y-2">
+                  {slots.map((slot) => (
+                    <button
+                      type="button"
+                      key={slot.id}
+                      onClick={() => setSelectedSlot(slot.id)}
+                      className={`w-full border rounded-lg px-4 py-2 text-left ${
+                        selectedSlot === slot.id
+                          ? "border-blue-600 bg-blue-50"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      {new Date(slot.date).toLocaleDateString()} –{" "}
+                      {slot.start} bis {slot.end}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Notiz (optional)
-                </label>
-                <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 min-h-[80px]"
-                />
-              </div>
+              {/* Notiz */}
+              <textarea
+                placeholder="Notiz (optional)"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+              />
 
-              {error && (
-                <p className="text-sm text-red-500 whitespace-pre-line">
-                  {error}
-                </p>
-              )}
-
+              {error && <p className="text-red-500 text-sm">{error}</p>}
               {success && (
-                <p className="text-sm text-green-600">
-                  Termin erfolgreich angefragt 🎉
-                  <br />
-                  Du wirst gleich zu deinem Dashboard weitergeleitet.
+                <p className="text-green-600 text-sm">
+                  Termin erfolgreich gebucht 🎉
                 </p>
               )}
 
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => router.push("/dashboard")}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  disabled={disabled}
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50"
-                >
-                  {submitting ? "Sende…" : "Termin anfragen"}
-                </button>
-              </div>
+              <button
+                type="submit"
+                disabled={
+                  submitting ||
+                  !selectedSlot ||
+                  !studentName ||
+                  !studentEmail
+                }
+                className="w-full bg-blue-600 text-white rounded-lg py-2 disabled:opacity-50"
+              >
+                {submitting ? "Buche…" : "Termin buchen"}
+              </button>
             </form>
           </>
         )}

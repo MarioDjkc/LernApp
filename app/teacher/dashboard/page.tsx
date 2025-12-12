@@ -12,7 +12,7 @@ type Booking = {
   id: string;
   start: string;
   end: string;
-  status: string;
+  status: "pending" | "accepted" | "declined";
   student?: {
     name: string | null;
     email: string;
@@ -23,42 +23,21 @@ export default function TeacherDashboard() {
   const { data: session, status } = useSession();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // ---------------------------------------------------------------------
-  // TERMIN STATUS ÄNDERN (ANNEHMEN / ABLEHNEN)
-  // ---------------------------------------------------------------------
-  async function updateStatus(bookingId: string, newStatus: "accepted" | "declined") {
-    const res = await fetch("/api/bookings/update-status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bookingId, status: newStatus }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      alert("Fehler: " + data.error);
-      return;
-    }
-
-    loadBookings();
-  }
-
-  // ---------------------------------------------------------------------
+  // ------------------------------------------------------------------
   // BUCHUNGEN LADEN
-  // ---------------------------------------------------------------------
+  // ------------------------------------------------------------------
   async function loadBookings() {
     if (!session?.user?.email) return;
 
     setLoading(true);
-    const res = await fetch(`/api/bookings/teacher?email=${session.user.email}`, {
-      cache: "no-store",
-    });
+    const res = await fetch(
+      `/api/bookings/teacher?email=${session.user.email}`,
+      { cache: "no-store" }
+    );
 
     const data = await res.json();
-    if (res.ok) setBookings(data.bookings);
-    else setError(data.error || "Fehler beim Laden");
-
+    setBookings(data.bookings || []);
     setLoading(false);
   }
 
@@ -66,17 +45,36 @@ export default function TeacherDashboard() {
     if (status === "authenticated") loadBookings();
   }, [status]);
 
-  // ---------------------------------------------------------------------
-  // FULLCALENDAR: Events transformieren
-  // ---------------------------------------------------------------------
+  // ------------------------------------------------------------------
+  // STATUS ÄNDERN
+  // ------------------------------------------------------------------
+  async function updateStatus(
+    bookingId: string,
+    newStatus: "accepted" | "declined"
+  ) {
+    await fetch("/api/bookings/update-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId, status: newStatus }),
+    });
+
+    loadBookings();
+  }
+
+  // ------------------------------------------------------------------
+  // EVENTS FÜR FULLCALENDAR
+  // ------------------------------------------------------------------
   const events = bookings.map((b) => ({
     id: b.id,
     title:
       (b.student?.name || b.student?.email || "Termin") +
-      (b.status === "pending" ? " (offen)" : b.status === "accepted" ? " (angenommen)" : " (abgelehnt)"),
+      (b.status === "pending"
+        ? " (offen)"
+        : b.status === "accepted"
+        ? " (angenommen)"
+        : " (abgelehnt)"),
     start: b.start,
     end: b.end,
-    allDay: false,
     backgroundColor:
       b.status === "pending"
         ? "#3b82f6"
@@ -85,60 +83,68 @@ export default function TeacherDashboard() {
         : "#dc2626",
   }));
 
-  // ---------------------------------------------------------------------
-  // KLICK AUF TERMIN
-  // ---------------------------------------------------------------------
+  // ------------------------------------------------------------------
+  // TERMIN KLICK
+  // ------------------------------------------------------------------
   function onEventClick(info: any) {
-    const bookingId = info.event.id;
-    const booking = bookings.find((b) => b.id === bookingId);
+    const booking = bookings.find((b) => b.id === info.event.id);
     if (!booking) return;
 
-    // 🟦 MODALES FENSTER (Buttons statt Prompt)
     const dialog = document.createElement("div");
     dialog.className =
       "fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4";
 
     dialog.innerHTML = `
-      <div class="bg-white p-6 rounded-xl shadow-xl max-w-md w-full">
+      <div class="bg-white p-6 rounded-xl max-w-md w-full">
         <h2 class="text-xl font-bold mb-3">Termin verwalten</h2>
+
         <p><strong>Schüler:</strong> ${booking.student?.email}</p>
-        <p><strong>Beginn:</strong> ${new Date(booking.start).toLocaleString()}</p>
-        <p><strong>Ende:</strong> ${new Date(booking.end).toLocaleString()}</p>
-        <p><strong>Status:</strong> ${booking.status}</p>
+        <p><strong>Datum:</strong> ${new Date(
+          booking.start
+        ).toLocaleDateString()}</p>
+        <p><strong>Zeit:</strong> ${new Date(
+          booking.start
+        ).toLocaleTimeString()} – ${new Date(
+          booking.end
+        ).toLocaleTimeString()}</p>
 
         <div class="flex gap-3 mt-6">
-          <button id="acceptBtn" class="flex-1 bg-green-600 text-white py-2 rounded-lg">Annehmen</button>
-          <button id="declineBtn" class="flex-1 bg-red-600 text-white py-2 rounded-lg">Ablehnen</button>
+          <button id="acceptBtn" class="flex-1 bg-green-600 text-white py-2 rounded-lg">
+            Annehmen
+          </button>
+          <button id="declineBtn" class="flex-1 bg-red-600 text-white py-2 rounded-lg">
+            Ablehnen
+          </button>
         </div>
 
-        <button id="closeBtn" class="mt-4 w-full py-2 text-gray-600">Abbrechen</button>
+        <button id="closeBtn" class="mt-4 w-full py-2 text-gray-600">
+          Abbrechen
+        </button>
       </div>
     `;
 
     document.body.appendChild(dialog);
 
-    // Button Events
-    dialog.querySelector("#acceptBtn")!.addEventListener("click", async () => {
-      await updateStatus(bookingId, "accepted");
+    dialog.querySelector("#acceptBtn")!.onclick = async () => {
+      await updateStatus(booking.id, "accepted");
       dialog.remove();
-    });
+    };
 
-    dialog.querySelector("#declineBtn")!.addEventListener("click", async () => {
-      await updateStatus(bookingId, "declined");
+    dialog.querySelector("#declineBtn")!.onclick = async () => {
+      await updateStatus(booking.id, "declined");
       dialog.remove();
-    });
+    };
 
-    dialog.querySelector("#closeBtn")!.addEventListener("click", () => dialog.remove());
+    dialog.querySelector("#closeBtn")!.onclick = () => dialog.remove();
   }
 
-  // ---------------------------------------------------------------------
+  // ------------------------------------------------------------------
 
   return (
     <main className="min-h-screen bg-gray-50 px-6 py-8">
-      <h1 className="text-2xl font-bold mb-4">Lehrer-Dashboard</h1>
+      <h1 className="text-2xl font-bold mb-4">Mein Kalender</h1>
 
-      {error && <p className="text-red-600 mb-4">{error}</p>}
-      {loading && <p>Lade Kalender …</p>}
+      {loading && <p>Lade Kalender…</p>}
 
       {!loading && (
         <FullCalendar
@@ -154,7 +160,7 @@ export default function TeacherDashboard() {
           allDaySlot={false}
           slotMinTime="08:00:00"
           slotMaxTime="20:00:00"
-          nowIndicator={true}
+          nowIndicator
           height="auto"
         />
       )}

@@ -11,13 +11,22 @@ type Slot = {
 };
 
 export default function TeacherAvailabilityPage() {
-  const { data: session } = useSession();
+  // ✅ session RICHTIG holen
+  const { data: session, status } = useSession();
 
   const [slots, setSlots] = useState<Slot[]>([]);
   const [date, setDate] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // ✅ NUR HIER darfst du session benutzen
+  useEffect(() => {
+    if (status === "authenticated") {
+      console.log("SESSION EMAIL:", session?.user?.email);
+      loadAvailability();
+    }
+  }, [status, session]);
 
   // 🔹 Slots laden
   async function loadAvailability() {
@@ -32,7 +41,7 @@ export default function TeacherAvailabilityPage() {
 
   // 🔹 Slot hinzufügen
   async function addSlot() {
-    if (!date || !start || !end) return;
+    if (!date || !start || !end || !session?.user?.email) return;
 
     setLoading(true);
 
@@ -40,7 +49,7 @@ export default function TeacherAvailabilityPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: session?.user?.email,
+        email: session.user.email,
         date,
         start,
         end,
@@ -64,13 +73,8 @@ export default function TeacherAvailabilityPage() {
     await loadAvailability();
   }
 
-  useEffect(() => {
-    loadAvailability();
-  }, [session?.user?.email]);
-
   return (
     <div className="max-w-3xl mx-auto space-y-8">
-
       <h1 className="text-3xl font-bold">Meine Verfügbarkeit</h1>
 
       {/* ➕ Slot hinzufügen */}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 
 export default function TeacherLoginPage() {
   const router = useRouter();
@@ -16,89 +17,60 @@ export default function TeacherLoginPage() {
     setError(null);
     setLoading(true);
 
-    try {
-      const res = await fetch("/api/teacher/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+    const res = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
 
-      const data = await res.json();
+    setLoading(false);
 
-      if (!res.ok || !data.ok) {
-        setError(data.error ?? "Login fehlgeschlagen.");
-        return;
-      }
-
-      // 🔑 Wenn noch kein eigenes Passwort gesetzt wurde:
-      if (data.mustChangePassword) {
-        router.push("/teacher/set-password");
-      } else {
-        // ✅ Normale Weiterleitung ins Dashboard (Kalender + Chat)
-        router.push("/teacher/dashboard");
-      }
-    } catch (err) {
-      console.error("Teacher login error:", err);
-      setError("Serverfehler. Bitte später erneut versuchen.");
-    } finally {
-      setLoading(false);
+    if (!res || res.error) {
+      setError("E-Mail oder Passwort falsch.");
+      return;
     }
+
+    // ✅ Erfolgreich eingeloggt → Lehrer-Dashboard
+    router.push("/teacher/dashboard");
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 to-indigo-100 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
-        <h1 className="text-2xl font-bold text-slate-900 mb-2 text-center">
-          Lehrer-Login
-        </h1>
-        <p className="text-sm text-slate-500 mb-6 text-center">
-          Melde dich mit deiner E-Mail und deinem Passwort an.
-        </p>
+    <div className="min-h-screen flex items-center justify-center bg-slate-100 px-4">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-8 rounded-2xl shadow w-full max-w-md"
+      >
+        <h1 className="text-2xl font-bold mb-6 text-center">Lehrer-Login</h1>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">
-            {error}
-          </div>
+          <div className="mb-4 text-red-600 text-sm">{error}</div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              E-Mail
-            </label>
-            <input
-              type="email"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-          </div>
+        <input
+          type="email"
+          placeholder="E-Mail"
+          className="w-full mb-3 border px-3 py-2 rounded"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Passwort
-            </label>
-            <input
-              type="password"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
-          </div>
+        <input
+          type="password"
+          placeholder="Passwort"
+          className="w-full mb-4 border px-3 py-2 rounded"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full mt-2 inline-flex justify-center items-center rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors"
-          >
-            {loading ? "Anmelden..." : "Anmelden"}
-          </button>
-        </form>
-      </div>
+        <button
+          disabled={loading}
+          className="w-full bg-indigo-600 text-white py-2 rounded"
+        >
+          {loading ? "Anmelden…" : "Anmelden"}
+        </button>
+      </form>
     </div>
   );
 }
