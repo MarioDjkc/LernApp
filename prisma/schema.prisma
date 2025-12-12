@@ -8,44 +8,46 @@ datasource db {
 }
 
 model User {
-  id               String    @id @default(uuid())
-  email            String    @unique
+  id               String   @id @default(uuid())
+  email            String   @unique
   password         String
   name             String?
-  role             String    @default("student")
+  role             String   @default("student")
   stripeCustomerId String?
-  createdAt        DateTime  @default(now())
+  createdAt        DateTime @default(now())
 
   bookings Booking[] @relation("studentBookings")
 }
 
 model Teacher {
-  id                 String   @id @default(uuid())
+  id                 String  @id @default(uuid())
   name               String
-  email              String   @unique
+  email              String  @unique
   subject            String
   password           String
-  mustChangePassword Boolean  @default(true)
+  mustChangePassword Boolean @default(true)
 
   bookings            Booking[]            @relation("teacherBookings")
   passwordResetTokens PasswordResetToken[]
   chat                Chat[]
+
+  availabilities Availability[] // ✅ DAS HAT GEFEHLT
 }
 
 model Booking {
-  id                     String   @id @default(uuid())
-  studentId              String
-  teacherId              String
-  start                  DateTime
-  end                    DateTime
-  priceCents             Int
-  currency               String   @default("eur")
-  status                 String   @default("pending")
-  stripeCustomerId       String?
-  stripePaymentMethodId  String?
-  stripeSetupIntentId    String?
-  stripePaymentIntentId  String?
-  createdAt              DateTime @default(now())
+  id                    String   @id @default(uuid())
+  studentId             String
+  teacherId             String
+  start                 DateTime
+  end                   DateTime
+  priceCents            Int
+  currency              String   @default("eur")
+  status                String   @default("pending")
+  stripeCustomerId      String?
+  stripePaymentMethodId String?
+  stripeSetupIntentId   String?
+  stripePaymentIntentId String?
+  createdAt             DateTime @default(now())
 
   student User    @relation("studentBookings", fields: [studentId], references: [id])
   teacher Teacher @relation("teacherBookings", fields: [teacherId], references: [id], onDelete: Cascade)
@@ -70,19 +72,18 @@ model PasswordResetToken {
 }
 
 model Chat {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   teacherId    String
   studentEmail String
   bookingId    String?
 
-  createdAt    DateTime @default(now())   // <- hier einfügen
+  createdAt DateTime  @default(now()) // <- hier einfügen
   updatedAt DateTime? @updatedAt
-      // <- optional, aber sinnvoll
+  // <- optional, aber sinnvoll
 
-  messages     ChatMessage[]
-  teacher      Teacher   @relation(fields: [teacherId], references: [id])
+  messages ChatMessage[]
+  teacher  Teacher       @relation(fields: [teacherId], references: [id])
 }
-
 
 model ChatMessage {
   id        String   @id @default(uuid())
@@ -92,4 +93,14 @@ model ChatMessage {
   createdAt DateTime @default(now())
 
   chat Chat @relation(fields: [chatId], references: [id])
+}
+
+model Availability {
+  id        String   @id @default(uuid())
+  teacherId String
+  date      DateTime
+  start     String
+  end       String
+
+  teacher Teacher @relation(fields: [teacherId], references: [id])
 }
