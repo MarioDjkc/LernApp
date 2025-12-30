@@ -1,10 +1,12 @@
-// app/api/bookings/update-status/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { sendBookingAcceptedEmail } from "@/app/lib/mailer";
 
 export async function POST(req: Request) {
   try {
-    const { bookingId, status } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const bookingId = body?.bookingId as string | undefined;
+    const status = body?.status as "accepted" | "declined" | "pending" | undefined;
 
     if (!bookingId || !status) {
       return NextResponse.json(
@@ -13,52 +15,48 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!["accepted", "declined"].includes(status)) {
-      return NextResponse.json(
-        { error: "Ungültiger Status" },
-        { status: 400 }
-      );
-    }
-
-    // Termin inkl. Student & Teacher laden + Status setzen
-    const booking = await prisma.booking.update({
+    // Booking holen (inkl. Schüler/Lehrer)
+    const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      data: { status },
       include: {
-        student: true, // dein User-Modell
-        teacher: true,
+        student: { select: { email: true, name: true } },
+        teacher: { select: { name: true } },
       },
     });
 
-    // Wenn angenommen → Chat anlegen (falls noch keiner existiert)
-    if (status === "accepted") {
-      if (!booking.student?.email) {
-        console.warn("Booking hat keinen Student mit E-Mail, Chat wird nicht erstellt.");
-      } else {
-        const existingChat = await prisma.chat.findFirst({
-          where: {
-            teacherId: booking.teacherId,
-            studentEmail: booking.student.email,
-          },
-        });
+    if (!booking) {
+      return NextResponse.json({ error: "Buchung nicht gefunden" }, { status: 404 });
+    }
 
-        if (!existingChat) {
-          await prisma.chat.create({
-            data: {
-              teacherId: booking.teacherId,
-              studentEmail: booking.student.email,
-              bookingId: booking.id,
-            },
+    // Status updaten
+    const updated = await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status },
+    });
+
+    // ✅ Wenn angenommen -> Mail an Schüler
+    if (status === "accepted") {
+      const to = booking.student?.email;
+      if (to) {
+        // Mail senden (Fehler beim Mailen soll NICHT den Status-Update kaputt machen)
+        try {
+          await sendBookingAcceptedEmail({
+            to,
+            teacherName: booking.teacher?.name ?? undefined,
+            startISO: booking.start.toISOString(),
+            endISO: booking.end.toISOString(),
           });
+        } catch (mailErr) {
+          console.error("MAIL ERROR (booking accepted):", mailErr);
         }
       }
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, booking: updated });
   } catch (err) {
-    console.error("update-status Fehler:", err);
+    console.error("POST /api/bookings/update-status error:", err);
     return NextResponse.json(
-      { error: "Serverfehler beim Aktualisieren" },
+      { error: "Serverfehler beim Update" },
       { status: 500 }
     );
   }
