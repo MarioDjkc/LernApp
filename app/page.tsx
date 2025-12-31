@@ -199,9 +199,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-
-      {/* 🔹 Chat Widget */}
-      <ChatWhatsAppModal />
     </main>
   );
 }
