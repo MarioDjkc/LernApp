@@ -1,140 +1,279 @@
+// app/teacher/chat/page.tsx
 "use client";
-console.log("🔥 DIESE CHAT PAGE WIRD GERENDERT!");
 
-
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+
+type ChatItem = {
+  id: string;
+  studentEmail: string;
+  studentName?: string | null;
+  subject?: string | null;
+};
+
+type Msg = {
+  id: string;
+  sender: "student" | "teacher" | "system";
+  text: string;
+  createdAt?: string;
+};
 
 export default function TeacherChatPage() {
   const { data: session } = useSession();
 
-  const [chats, setChats] = useState<any[]>([]);
-  const [selectedChat, setSelectedChat] = useState<any>(null);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [chats, setChats] = useState<ChatItem[]>([]);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [partnerEmail, setPartnerEmail] = useState<string>("");
+  const [partnerName, setPartnerName] = useState<string>("");
+
   const [input, setInput] = useState("");
+  const [loadingChats, setLoadingChats] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // CHATLISTE LADEN
+  const lastMsgIdRef = useRef<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  // ---------------------------
+  // CHATS LADEN (für Lehrer)
+  // ---------------------------
   useEffect(() => {
-    if (!session?.user?.email) return;
-
     async function loadChats() {
-      const res = await fetch(`/api/teacher/chat?email=${session.user.email}`);
-      const data = await res.json();
-      setChats(data.chats || []);
+      if (!session?.user?.email) return;
+
+      setLoadingChats(true);
+      try {
+        const res = await fetch(`/api/teacher/chat?email=${session.user.email}`, {
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => ({}));
+        const list: ChatItem[] = data.chats || [];
+
+        setChats(list);
+
+        // auto-select ersten chat
+        if (!selectedChat && list.length > 0) {
+          setSelectedChat(list[0].id);
+        }
+      } finally {
+        setLoadingChats(false);
+      }
     }
 
     loadChats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.email]);
 
+  const selectedChatObj = useMemo(
+    () => chats.find((c) => c.id === selectedChat) || null,
+    [chats, selectedChat]
+  );
 
-  // NACHRICHTEN LADEN
-  async function loadMessages(chatId: string) {
-    console.log("📥 Lade Nachrichten:", chatId);
+  // ---------------------------
+  // MESSAGES LADEN
+  // (OHNE FLACKERN: nur setzen wenn neu)
+  // ---------------------------
+  useEffect(() => {
+    if (!selectedChat) return;
 
-    const res = await fetch(`/api/chat/${chatId}/messages`);
-    console.log("📡 Status:", res.status);
+    let alive = true;
 
-    const data = await res.json();
-    console.log("📦 Messages:", data);
+    async function loadMessages() {
+      setLoadingMessages(true);
+      try {
+        const res = await fetch(`/api/chat/${selectedChat}/messages`, {
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => ({}));
 
-    setMessages(data.messages || []);
-    setSelectedChat({
-      id: chatId,
-      studentEmail: data.studentEmail,
-    });
-  }
+        const newMessages: Msg[] = data.messages || [];
 
-  // Nachricht senden
-  async function sendMessage(e: any) {
+        // Partner-Daten (für Header)
+        const pe = selectedChatObj?.studentEmail || data.studentEmail || "";
+        const pn = selectedChatObj?.studentName || data.studentName || "";
+
+        if (!alive) return;
+
+        // nur updaten wenn es wirklich neue msg gibt (gegen "Flackern")
+        const newestId = newMessages.length ? newMessages[newMessages.length - 1].id : null;
+        if (newestId && newestId !== lastMsgIdRef.current) {
+          setMessages(newMessages);
+          lastMsgIdRef.current = newestId;
+          setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 10);
+        } else if (!newestId && lastMsgIdRef.current !== null) {
+          // wenn leer wurde (selten) -> setzen
+          setMessages(newMessages);
+          lastMsgIdRef.current = null;
+        }
+
+        setPartnerEmail(pe);
+        setPartnerName(pn);
+      } finally {
+        if (alive) setLoadingMessages(false);
+      }
+    }
+
+    loadMessages();
+    const interval = setInterval(loadMessages, 1200);
+
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+  }, [selectedChat, selectedChatObj]);
+
+  // ---------------------------
+  // SEND MESSAGE (Teacher)
+  // ---------------------------
+  async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!selectedChat) return;
 
-    await fetch(`/api/chat/${selectedChat.id}/messages`, {
+    const text = input.trim();
+    if (!text) return;
+
+    // optimistic UI
+    const tempId = `temp-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      { id: tempId, sender: "teacher", text, createdAt: new Date().toISOString() },
+    ]);
+    setInput("");
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 10);
+
+    await fetch(`/api/chat/${selectedChat}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sender: "teacher", text: input }),
-    });
-
-    setInput("");
-    loadMessages(selectedChat.id);
+      body: JSON.stringify({ sender: "teacher", text }),
+    }).catch(() => {});
   }
 
   return (
     <div className="flex h-[calc(100vh-70px)] bg-gray-100">
-      
-      {/* CHATLISTE */}
-      <div className="w-[300px] bg-white border-r border-gray-300 p-4 overflow-y-auto">
-        <h2 className="text-xl font-semibold text-blue-600 mb-4">Chats</h2>
+      {/* LINKS: Chat-Liste */}
+      <aside className="w-[320px] bg-white border-r p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Chats</h2>
+        </div>
 
-        {chats.map((chat) => (
-          <div
-            key={chat.id}
-            onClick={() => {
-              console.log("💥 Chat angeklickt:", chat.id);
-              loadMessages(chat.id);
-            }}
-            className={`p-3 rounded-lg cursor-pointer mb-2 shadow-sm border hover:bg-blue-50 transition`}
-          >
-            <p className="font-semibold">{chat.studentEmail}</p>
-            <p className="text-xs text-gray-500">Anklicken</p>
-          </div>
-        ))}
-      </div>
+        {loadingChats && <p className="text-sm text-gray-500">Lade Chats…</p>}
 
-      {/* CHATFENSTER RECHTS */}
-      <div className="flex-1 flex flex-col">
-
-        {!selectedChat && (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            Wähle einen Chat aus
-          </div>
+        {!loadingChats && chats.length === 0 && (
+          <p className="text-sm text-gray-500">Noch keine Chats vorhanden.</p>
         )}
 
-        {selectedChat && (
-          <>
-            {/* HEADER */}
-            <div className="px-5 py-4 bg-blue-600 text-white shadow flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold">
-                {selectedChat.studentEmail.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="font-semibold text-lg">{selectedChat.studentEmail}</p>
-                <p className="text-xs opacity-80">Online</p>
-              </div>
-            </div>
-
-            {/* NACHRICHTEN */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-gray-50">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`max-w-xl px-4 py-2 rounded-xl shadow 
-                    ${msg.sender === "teacher"
-                      ? "bg-blue-600 text-white ml-auto rounded-br-none"
-                      : "bg-white text-gray-900 rounded-bl-none"
-                    }`}
-                >
-                  {msg.text}
+        <div className="space-y-3">
+          {chats.map((chat) => {
+            const active = selectedChat === chat.id;
+            return (
+              <button
+                key={chat.id}
+                onClick={() => setSelectedChat(chat.id)}
+                className={`w-full text-left rounded-xl border p-3 transition ${
+                  active ? "border-blue-600 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"
+                }`}
+              >
+                <div className="font-semibold text-sm">
+                  {chat.studentName || "Schüler"}
                 </div>
-              ))}
-            </div>
-
-            {/* EINGABE */}
-            <form onSubmit={sendMessage} className="p-4 bg-white flex items-center gap-3 border-t">
-              <input
-                type="text"
-                placeholder="Nachricht schreiben..."
-                className="flex-1 border rounded-full px-4 py-2 bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-              />
-              <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700">
-                Senden
+                <div className="text-xs text-gray-600 truncate">{chat.studentEmail}</div>
+                {chat.subject ? (
+                  <div className="text-[11px] text-gray-500 mt-1">{chat.subject}</div>
+                ) : null}
               </button>
-            </form>
-          </>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      </aside>
+
+      {/* RECHTS: Chat */}
+      <section className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="px-5 py-3 bg-blue-600 text-white">
+          <div className="text-lg font-semibold">
+            {selectedChat ? (partnerName || partnerEmail || "Chat") : "Wähle einen Chat aus"}
+          </div>
+          {selectedChat && partnerEmail && (
+            <div className="text-xs text-blue-100">{partnerEmail}</div>
+          )}
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+          {loadingMessages && messages.length === 0 && (
+            <p className="text-sm text-gray-500">Lade Nachrichten…</p>
+          )}
+
+          {!loadingMessages && selectedChat && messages.length === 0 && (
+            <p className="text-sm text-gray-500">Noch keine Nachrichten.</p>
+          )}
+
+          {messages.map((msg) => {
+            if (msg.sender === "system") {
+              return (
+                <div key={msg.id} className="flex justify-center">
+                  <div className="max-w-2xl rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 shadow-sm">
+                    <span className="mr-2">✅</span>
+                    {msg.text}
+                    {msg.createdAt ? (
+                      <div className="mt-1 text-[10px] text-amber-700 text-right">
+                        {new Date(msg.createdAt).toLocaleString("de-DE")}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            }
+
+            const isTeacher = msg.sender === "teacher";
+            return (
+              <div
+                key={msg.id}
+                className={`flex ${isTeacher ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[700px] rounded-2xl px-5 py-3 shadow-sm ${
+                    isTeacher ? "bg-blue-600 text-white" : "bg-white text-gray-900"
+                  }`}
+                >
+                  <div className="text-sm whitespace-pre-wrap">{msg.text}</div>
+                  {msg.createdAt ? (
+                    <div
+                      className={`mt-1 text-[10px] ${
+                        isTeacher ? "text-blue-100" : "text-gray-400"
+                      } text-right`}
+                    >
+                      {new Date(msg.createdAt).toLocaleString("de-DE")}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input */}
+        <form onSubmit={sendMessage} className="p-4 bg-white border-t flex gap-3">
+          <input
+            type="text"
+            className="flex-1 border rounded-full px-5 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder={selectedChat ? "Nachricht schreiben..." : "Wähle zuerst einen Chat"}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={!selectedChat}
+          />
+          <button
+            type="submit"
+            disabled={!selectedChat || !input.trim()}
+            className="px-8 rounded-full bg-blue-600 text-white font-semibold disabled:opacity-50"
+          >
+            Senden
+          </button>
+        </form>
+      </section>
     </div>
   );
 }
