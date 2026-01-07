@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 type Teacher = {
   id: string;
   name: string;
-  subject: string;
+  subject: string; // bei dir: "Englisch,Mathematik"
 };
 
 type Slot = {
@@ -14,191 +14,329 @@ type Slot = {
   date: string;
   start: string;
   end: string;
+  subject?: string | null; // "ALL" oder Fach
 };
+
+function parseSubjects(subjectRaw: string | null | undefined): string[] {
+  if (!subjectRaw) return [];
+  return subjectRaw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export default function BookPage() {
   const router = useRouter();
-  const pathname = usePathname();
-  const teacherId = pathname.split("/").pop() || "";
+  const rawPathname = usePathname();
+  const pathname = rawPathname ?? "";
+
+  const segments = pathname.split("/");
+  const teacherId = segments[segments.length - 1] || "";
 
   const [teacher, setTeacher] = useState<Teacher | null>(null);
-  const [slots, setSlots] = useState<Slot[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [loadingTeacher, setLoadingTeacher] = useState(true);
 
   const [studentName, setStudentName] = useState("");
   const [studentEmail, setStudentEmail] = useState("");
   const [note, setNote] = useState("");
 
-  const [loading, setLoading] = useState(true);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
+
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [selectedSlotId, setSelectedSlotId] = useState<string>("");
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // -----------------------------
-  // Lehrer laden
-  // -----------------------------
+  const selectedSlot = useMemo(
+    () => slots.find((s) => s.id === selectedSlotId) || null,
+    [slots, selectedSlotId]
+  );
+
+  // 1) Lehrer laden
   useEffect(() => {
-    async function loadTeacher() {
-      const res = await fetch("/api/teachers");
-      const json = await res.json();
-      const found = (json.data ?? json).find(
-        (t: Teacher) => String(t.id) === String(teacherId)
-      );
-      setTeacher(found ?? null);
-    }
-    loadTeacher();
+    if (!teacherId) return;
+
+    (async () => {
+      try {
+        setError(null);
+        setLoadingTeacher(true);
+
+        const res = await fetch("/api/teachers", { cache: "no-store" });
+        const json = await res.json();
+
+        const list: Teacher[] = json.data ?? json;
+        const found = list.find((t) => String(t.id) === String(teacherId));
+
+        if (!found) {
+          setError("Lehrer wurde nicht gefunden.");
+          setTeacher(null);
+          return;
+        }
+
+        setTeacher(found);
+
+        const subs = parseSubjects(found.subject);
+        setSubjects(subs);
+
+        // Default: erstes Fach auswählen (wenn vorhanden)
+        if (subs.length > 0) {
+          setSelectedSubject(subs[0]);
+        } else {
+          setSelectedSubject("");
+        }
+      } catch (e: any) {
+        setError(e?.message ?? "Fehler beim Laden des Lehrers.");
+      } finally {
+        setLoadingTeacher(false);
+      }
+    })();
   }, [teacherId]);
 
-  // -----------------------------
-  // Slots laden
-  // -----------------------------
+  // 2) Slots laden (abhängig vom ausgewählten Fach)
   useEffect(() => {
-    async function loadSlots() {
-      const res = await fetch(
-        `/api/student/availability?teacherId=${teacherId}`
-      );
-      const json = await res.json();
-      setSlots(json.slots || []);
-      setLoading(false);
+    if (!teacherId) return;
+    if (!selectedSubject) {
+      setSlots([]);
+      setSelectedSlotId("");
+      return;
     }
-    loadSlots();
-  }, [teacherId]);
 
-  // -----------------------------
-  // Buchen
-  // -----------------------------
+    (async () => {
+      try {
+        setError(null);
+
+        const res = await fetch(
+          `/api/student/availability?teacherId=${encodeURIComponent(
+            teacherId
+          )}&subject=${encodeURIComponent(selectedSubject)}`,
+          { cache: "no-store" }
+        );
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Slots konnten nicht geladen werden.");
+
+        // subjects kommt auch vom Backend – wir nehmen sie als “Quelle der Wahrheit”
+        if (Array.isArray(data.subjects)) {
+          setSubjects(data.subjects);
+          if (!data.subjects.includes(selectedSubject) && data.subjects.length > 0) {
+            setSelectedSubject(data.subjects[0]);
+          }
+        }
+
+        setSlots(data.slots || []);
+        setSelectedSlotId("");
+      } catch (e: any) {
+        setError(e?.message ?? "Fehler beim Laden der Slots.");
+        setSlots([]);
+        setSelectedSlotId("");
+      }
+    })();
+  }, [teacherId, selectedSubject]);
+
+  function buildDateTime(dateStr: string, timeStr: string): string {
+    return `${dateStr}T${timeStr}:00`;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedSlot) return;
+    if (!teacher) return;
+    if (!selectedSlot) {
+      setError("Bitte wähle einen freien Termin aus.");
+      return;
+    }
 
-    setSubmitting(true);
     setError(null);
+    setSubmitting(true);
 
     try {
-      const res = await fetch("/api/bookings/student", {
+      // Slot enthält date als DateTime in DB -> wir nehmen nur das Datum (YYYY-MM-DD)
+      const dateOnly = new Date(selectedSlot.date).toISOString().slice(0, 10);
+
+      const startsAt = buildDateTime(dateOnly, selectedSlot.start);
+      const endsAt = buildDateTime(dateOnly, selectedSlot.end);
+
+      const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          availabilityId: selectedSlot,
+          teacherId: teacher.id,
           studentName,
           studentEmail,
+          subject: selectedSubject, // ✅ genau das gewählte Fach
+          start: startsAt,
+          end: endsAt,
           note,
+          availabilityId: selectedSlot.id, // falls du das nutzt
         }),
       });
 
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json?.error || "Fehler bei der Buchung");
+      let json: any = null;
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
       }
 
-      // ✅ SLOT SOFORT ENTFERNEN
-      setSlots((prev) => prev.filter((s) => s.id !== selectedSlot));
-      setSelectedSlot(null);
+      if (!res.ok) {
+        throw new Error(json?.error || `Fehler bei der Terminbuchung (${res.status})`);
+      }
+
       setSuccess(true);
 
       setTimeout(() => {
         router.push("/student/dashboard");
-      }, 1500);
+      }, 1200);
     } catch (e: any) {
-      setError(e?.message || "Unbekannter Fehler");
+      setError(e?.message ?? "Unbekannter Fehler bei der Buchung.");
     } finally {
       setSubmitting(false);
     }
   }
 
+  const disabled =
+    !teacher ||
+    !studentName ||
+    !studentEmail ||
+    !selectedSubject ||
+    !selectedSlotId ||
+    submitting;
+
   return (
     <main className="min-h-screen bg-[#f5f7fa] flex justify-center px-4 py-10">
-      <div className="w-full max-w-xl bg-white rounded-2xl shadow-md p-8">
-        {!teacher && <p>Lehrer wird geladen…</p>}
+      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-md p-10">
+        {loadingTeacher && <p>Lade Lehrer…</p>}
+
+        {!loadingTeacher && !teacher && (
+          <p className="text-red-500">Lehrer wurde nicht gefunden.</p>
+        )}
 
         {teacher && (
           <>
-            <h1 className="text-2xl font-bold mb-2">
+            <h1 className="text-4xl font-extrabold mb-2">
               Termin mit {teacher.name}
             </h1>
+
             <p className="text-gray-600 mb-6">
-              Fach: <b>{teacher.subject}</b>
+              <span className="font-semibold">Fächer:</span>{" "}
+              {subjects.length ? subjects.join(", ") : "—"}
             </p>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Name */}
-              <input
-                placeholder="Dein Name"
-                value={studentName}
-                onChange={(e) => setStudentName(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2"
-                required
-              />
-
-              {/* Email */}
-              <input
-                placeholder="Deine E-Mail"
-                type="email"
-                value={studentEmail}
-                onChange={(e) => setStudentEmail(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2"
-                required
-              />
-
-              {/* Slots */}
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <h3 className="font-semibold mb-2">Freie Termine</h3>
-
-                {loading && <p>Lade Slots…</p>}
-
-                {!loading && slots.length === 0 && (
-                  <p className="text-gray-500">
-                    Keine freien Termine verfügbar.
-                  </p>
-                )}
-
-                <div className="space-y-2">
-                  {slots.map((slot) => (
-                    <button
-                      type="button"
-                      key={slot.id}
-                      onClick={() => setSelectedSlot(slot.id)}
-                      className={`w-full border rounded-lg px-4 py-2 text-left ${
-                        selectedSlot === slot.id
-                          ? "border-blue-600 bg-blue-50"
-                          : "border-gray-300"
-                      }`}
-                    >
-                      {new Date(slot.date).toLocaleDateString()} –{" "}
-                      {slot.start} bis {slot.end}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-sm font-medium mb-1">Dein Name</label>
+                <input
+                  type="text"
+                  value={studentName}
+                  onChange={(e) => setStudentName(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  required
+                />
               </div>
 
-              {/* Notiz */}
-              <textarea
-                placeholder="Notiz (optional)"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2"
-              />
+              <div>
+                <label className="block text-sm font-medium mb-1">Deine E-Mail</label>
+                <input
+                  type="email"
+                  value={studentEmail}
+                  onChange={(e) => setStudentEmail(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  required
+                />
+              </div>
 
-              {error && <p className="text-red-500 text-sm">{error}</p>}
-              {success && (
-                <p className="text-green-600 text-sm">
-                  Termin erfolgreich gebucht 🎉
+              {/* ✅ Fach wählen */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Fach wählen</label>
+                <select
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  required
+                >
+                  <option value="" disabled>
+                    Bitte auswählen…
+                  </option>
+                  {subjects.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ✅ Freie Termine */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Freie Termine</label>
+
+                {slots.length === 0 ? (
+                  <p className="text-gray-500">Keine freien Termine verfügbar.</p>
+                ) : (
+                  <select
+                    value={selectedSlotId}
+                    onChange={(e) => setSelectedSlotId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    required
+                  >
+                    <option value="" disabled>
+                      Termin auswählen…
+                    </option>
+                    {slots.map((slot) => {
+                      const d = new Date(slot.date).toLocaleDateString("de-DE");
+                      return (
+                        <option key={slot.id} value={slot.id}>
+                          {d} — {slot.start} bis {slot.end}
+                          {slot.subject && slot.subject !== "ALL"
+                            ? ` (${slot.subject})`
+                            : " (alle Fächer)"}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Notiz (optional)
+                </label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 min-h-[90px]"
+                />
+              </div>
+
+              {error && (
+                <p className="text-sm text-red-500 whitespace-pre-line">
+                  {error}
                 </p>
               )}
 
-              <button
-                type="submit"
-                disabled={
-                  submitting ||
-                  !selectedSlot ||
-                  !studentName ||
-                  !studentEmail
-                }
-                className="w-full bg-blue-600 text-white rounded-lg py-2 disabled:opacity-50"
-              >
-                {submitting ? "Buche…" : "Termin buchen"}
-              </button>
+              {success && (
+                <p className="text-sm text-green-600">
+                  Termin erfolgreich angefragt 🎉
+                </p>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => router.push("/dashboard")}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  disabled={disabled}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50"
+                >
+                  {submitting ? "Sende…" : "Termin buchen"}
+                </button>
+              </div>
             </form>
           </>
         )}

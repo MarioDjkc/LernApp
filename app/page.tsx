@@ -46,7 +46,7 @@ export default function Home() {
             </button>
 
             <Link
-              href="/teacher/login"
+              href="/auth/teacher/login"
               className="px-6 py-3 rounded-lg border border-blue-600 text-blue-600 font-semibold bg-white hover:bg-blue-50 transition"
             >
               Lehrer-Login

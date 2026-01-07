@@ -12,44 +12,48 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
 
   providers: [
+    // ✅ LEHRER-LOGIN: NUR Teacher Tabelle
     CredentialsProvider({
-      name: "Credentials",
+      id: "teacher-credentials",
+      name: "Teacher Credentials",
       credentials: {
         email: { label: "E-Mail", type: "email" },
         password: { label: "Passwort", type: "password" },
       },
-
       async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) {
-          return null;
-        }
+        if (!credentials?.email || !credentials.password) return null;
 
-        // 1️⃣ ZUERST: Lehrer prüfen
         const teacher = await prisma.teacher.findUnique({
           where: { email: credentials.email },
         });
+        if (!teacher) return null;
 
-        if (teacher) {
-          const ok = await bcrypt.compare(
-            credentials.password,
-            teacher.password
-          );
+        const ok = await bcrypt.compare(credentials.password, teacher.password);
+        if (!ok) return null;
 
-          if (!ok) return null;
+        return {
+          id: teacher.id,
+          email: teacher.email,
+          name: teacher.name,
+          role: "teacher",
+        } as any;
+      },
+    }),
 
-          return {
-            id: teacher.id,
-            email: teacher.email,
-            name: teacher.name,
-            role: "teacher",
-          };
-        }
+    // ✅ SCHÜLER-LOGIN: NUR User Tabelle
+    CredentialsProvider({
+      id: "student-credentials",
+      name: "Student Credentials",
+      credentials: {
+        email: { label: "E-Mail", type: "email" },
+        password: { label: "Passwort", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials.password) return null;
 
-        // 2️⃣ DANACH: Schüler prüfen
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
-
         if (!user) return null;
 
         const ok = await bcrypt.compare(credentials.password, user.password);
@@ -60,7 +64,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name ?? undefined,
           role: "student",
-        };
+        } as any;
       },
     }),
   ],
@@ -70,28 +74,25 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = (user as any).id;
         token.role = (user as any).role;
+        token.email = (user as any).email;
+        token.name = (user as any).name;
       }
       return token;
     },
 
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id;
-        (session.user as any).role = token.role;
+        (session.user as any).id = token.id as string;
+        (session.user as any).role = token.role as string;
+        session.user.email = token.email as string;
+        session.user.name = (token.name as string) ?? null;
       }
       return session;
-    },
-
-    async redirect({ baseUrl, token }) {
-      if ((token as any)?.role === "teacher") {
-        return `${baseUrl}/teacher/dashboard`;
-      }
-      return `${baseUrl}/student/dashboard`;
     },
   },
 
   pages: {
-    signIn: "/", // eine Login-Seite für ALLE
+    signIn: "/auth/login",
   },
 };
 

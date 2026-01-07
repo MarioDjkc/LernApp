@@ -1,9 +1,11 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 
-export default function StudentLoginPage() {
+export default function TeacherLoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -14,31 +16,28 @@ export default function StudentLoginPage() {
     setError(null);
     setLoading(true);
 
-    const result = await signIn("student-credentials", {
-      redirect: false,
+    const res = await signIn("teacher-credentials", {
       email,
       password,
+      redirect: false,
     });
 
-    if (result?.ok) {
-      window.location.href = "/student/dashboard";
-    } else {
-      setError("E-Mail oder Passwort falsch");
+    setLoading(false);
+
+    if (!res || res.error) {
+      setError("Kein Lehrer-Konto oder falsches Passwort.");
+      return;
     }
 
-    setLoading(false);
+    router.push("/teacher/dashboard");
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 to-indigo-100 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
         <h1 className="text-2xl font-bold text-slate-900 mb-2 text-center">
-          Schüler Login
+          Lehrer-Login
         </h1>
-
-        <p className="text-sm text-slate-500 mb-6 text-center">
-          Melde dich mit deinem Schüler-Konto an
-        </p>
 
         {error && (
           <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">
@@ -53,10 +52,11 @@ export default function StudentLoginPage() {
             </label>
             <input
               type="email"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
             />
           </div>
 
@@ -66,31 +66,22 @@ export default function StudentLoginPage() {
             </label>
             <input
               type="password"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 px-4 py-2.5 text-sm font-semibold text-white shadow"
+            className="w-full mt-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 px-4 py-2.5 text-sm font-semibold text-white"
           >
-            {loading ? "Anmelden..." : "Einloggen"}
+            {loading ? "Anmelden..." : "Anmelden"}
           </button>
         </form>
-
-        <p className="text-center text-sm text-gray-600 mt-4">
-          Lehrer?{" "}
-          <a
-            href="/teacher/login"
-            className="text-indigo-600 hover:underline font-medium"
-          >
-            Zum Lehrer-Login
-          </a>
-        </p>
       </div>
     </div>
   );

@@ -101,6 +101,6 @@ model Availability {
   date      DateTime
   start     String
   end       String
-
+  subject   String   @default("ALL") // ✅ neu: z.B. "Englisch" oder "ALL"
   teacher Teacher @relation(fields: [teacherId], references: [id])
 }
