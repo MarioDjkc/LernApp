@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,6 +9,48 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+/**
+ * Österreich – Schultypen (feingranular)
+ * AHS: Unterstufe 1–4, Oberstufe 1–4
+ * BHS: Oberstufe 1–5
+ */
+enum SchoolTrack {
+  AHS
+  BHS
+}
+
+enum SchoolLevel {
+  UNTERSTUFE
+  OBERSTUFE
+}
+
+/**
+ * Konkrete Schulformen/Schulzweige
+ */
+enum SchoolForm {
+  // --- AHS ---
+  AHS_GYMNASIUM
+  AHS_REALGYMNASIUM
+  AHS_WK_REALGYMNASIUM
+  AHS_BORG
+  AHS_SCHWERPUNKT
+
+  // --- BHS ---
+  BHS_HTL
+  BHS_HAK
+  BHS_HLW
+  BHS_MODE
+  BHS_KUNST_GESTALTUNG
+  BHS_TOURISMUS
+  BHS_SOZIALPAED
+  BHS_LAND_FORST
+
+  OTHER
+}
+
+/**
+ * Schüler
+ */
 model User {
   id               String   @id @default(uuid())
   email            String   @unique
@@ -16,24 +60,83 @@ model User {
   stripeCustomerId String?
   createdAt        DateTime @default(now())
 
+  // ✅ Schul-Infos (NEU)
+  schoolTrack SchoolTrack?
+  schoolForm  SchoolForm?
+  schoolName  String?
+  level       SchoolLevel?
+  grade       Int?
+
   bookings Booking[] @relation("studentBookings")
 }
 
+/**
+ * Lehrer
+ */
 model Teacher {
-  id                 String  @id @default(uuid())
-  name               String
-  email              String  @unique
-  subject            String
+  id    String @id @default(uuid())
+  name  String
+  email String @unique
+
+  // ⚠️ Übergang: im UI/API ist subject noch String.
+  // TeachingOffer ist die "richtige" Logik, subject bleibt erstmal für Kompatibilität.
+  subject String
+
   password           String
   mustChangePassword Boolean @default(true)
 
   bookings            Booking[]            @relation("teacherBookings")
   passwordResetTokens PasswordResetToken[]
   chat                Chat[]
+  availabilities      Availability[]
 
-  availabilities Availability[] // ✅ DAS HAT GEFEHLT
+  // ✅ NEU: Angebote des Lehrers
+  offers TeachingOffer[]
 }
 
+/**
+ * Fächer-Lookup
+ */
+model Subject {
+  id   String @id @default(uuid())
+  name String @unique
+
+  offers TeachingOffer[]
+}
+
+/**
+ * Lehrer-Angebote
+ */
+model TeachingOffer {
+  id String @id @default(uuid())
+
+  teacherId String
+  subjectId String
+
+  schoolTrack SchoolTrack
+  schoolForm  SchoolForm
+  level       SchoolLevel
+
+  minGrade Int
+  maxGrade Int
+
+  createdAt DateTime @default(now())
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  // ✅ NEU: Gegenrelation (WICHTIG)
+  availabilities Availability[]
+
+  @@unique([teacherId, subjectId, schoolForm, level, minGrade, maxGrade])
+  @@index([teacherId])
+  @@index([subjectId])
+  @@index([schoolForm, level, minGrade, maxGrade])
+}
+
+/**
+ * Buchungen
+ */
 model Booking {
   id                    String   @id @default(uuid())
   studentId             String
@@ -48,11 +151,15 @@ model Booking {
   stripeSetupIntentId   String?
   stripePaymentIntentId String?
   createdAt             DateTime @default(now())
+  note                  String?
 
   student User    @relation("studentBookings", fields: [studentId], references: [id])
   teacher Teacher @relation("teacherBookings", fields: [teacherId], references: [id], onDelete: Cascade)
 }
 
+/**
+ * Lehrerbewerbungen
+ */
 model TeacherApplication {
   id        String   @id @default(cuid())
   name      String
@@ -63,6 +170,9 @@ model TeacherApplication {
   createdAt DateTime @default(now())
 }
 
+/**
+ * Reset Tokens
+ */
 model PasswordResetToken {
   id        String   @id @default(cuid())
   token     String   @unique
@@ -71,15 +181,17 @@ model PasswordResetToken {
   expiresAt DateTime
 }
 
+/**
+ * Chat
+ */
 model Chat {
   id           String  @id @default(uuid())
   teacherId    String
   studentEmail String
   bookingId    String?
 
-  createdAt DateTime  @default(now()) // <- hier einfügen
+  createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt
-  // <- optional, aber sinnvoll
 
   messages ChatMessage[]
   teacher  Teacher       @relation(fields: [teacherId], references: [id])
@@ -101,6 +213,13 @@ model Availability {
   date      DateTime
   start     String
   end       String
-  subject   String   @default("ALL") // ✅ neu: z.B. "Englisch" oder "ALL"
+
+  // 🔗 Slot gehört zu einem konkreten Angebot
+  offerId String?
+  offer   TeachingOffer? @relation(fields: [offerId], references: [id], onDelete: SetNull)
+
   teacher Teacher @relation(fields: [teacherId], references: [id])
+
+  @@index([teacherId])
+  @@index([offerId])
 }

@@ -1,3 +1,4 @@
+// app/teacher/dashboard/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -13,11 +14,21 @@ type Booking = {
   start: string;
   end: string;
   status: "pending" | "accepted" | "declined";
+  note?: string | null; // ✅ NEU
   student?: {
     name: string | null;
     email: string;
   } | null;
 };
+
+function escapeHtml(input: string) {
+  return input
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
 export default function TeacherDashboard() {
   const { data: session, status } = useSession();
@@ -31,10 +42,9 @@ export default function TeacherDashboard() {
     if (!session?.user?.email) return;
 
     setLoading(true);
-    const res = await fetch(
-      `/api/bookings/teacher?email=${session.user.email}`,
-      { cache: "no-store" }
-    );
+    const res = await fetch(`/api/bookings/teacher?email=${session.user.email}`, {
+      cache: "no-store",
+    });
 
     const data = await res.json();
     setBookings(data.bookings || []);
@@ -48,10 +58,7 @@ export default function TeacherDashboard() {
   // ------------------------------------------------------------------
   // STATUS ÄNDERN
   // ------------------------------------------------------------------
-  async function updateStatus(
-    bookingId: string,
-    newStatus: "accepted" | "declined"
-  ) {
+  async function updateStatus(bookingId: string, newStatus: "accepted" | "declined") {
     await fetch("/api/bookings/update-status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -90,6 +97,10 @@ export default function TeacherDashboard() {
     const booking = bookings.find((b) => b.id === info.event.id);
     if (!booking) return;
 
+    const noteText = booking.note?.trim()
+      ? escapeHtml(booking.note.trim())
+      : "—";
+
     const dialog = document.createElement("div");
     dialog.className =
       "fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4";
@@ -98,15 +109,16 @@ export default function TeacherDashboard() {
       <div class="bg-white p-6 rounded-xl max-w-md w-full">
         <h2 class="text-xl font-bold mb-3">Termin verwalten</h2>
 
-        <p><strong>Schüler:</strong> ${booking.student?.email}</p>
-        <p><strong>Datum:</strong> ${new Date(
-          booking.start
-        ).toLocaleDateString()}</p>
-        <p><strong>Zeit:</strong> ${new Date(
-          booking.start
-        ).toLocaleTimeString()} – ${new Date(
+        <p><strong>Schüler:</strong> ${escapeHtml(booking.student?.email || "—")}</p>
+        <p><strong>Datum:</strong> ${new Date(booking.start).toLocaleDateString()}</p>
+        <p><strong>Zeit:</strong> ${new Date(booking.start).toLocaleTimeString()} – ${new Date(
           booking.end
         ).toLocaleTimeString()}</p>
+
+        <div style="margin-top:12px; padding:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;">
+          <p style="font-weight:700; margin-bottom:6px;">Notiz des Schülers:</p>
+          <p style="white-space:pre-wrap;">${noteText}</p>
+        </div>
 
         <div class="flex gap-3 mt-6">
           <button id="acceptBtn" class="flex-1 bg-green-600 text-white py-2 rounded-lg">

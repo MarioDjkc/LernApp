@@ -2,52 +2,100 @@
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
 
-function parseSubjects(subjectRaw: string | null | undefined): string[] {
-  if (!subjectRaw) return [];
-  return subjectRaw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
 
-    const teacherId = searchParams.get("teacherId");
-    const subject = searchParams.get("subject"); // z.B. "Mathematik" (optional)
+    const teacherId = (searchParams.get("teacherId") || "").trim();
+    const subject = (searchParams.get("subject") || "").trim(); // z.B. "Mathematik" | "ALL" | ""
 
     if (!teacherId) {
       return NextResponse.json({ error: "teacherId fehlt" }, { status: 400 });
     }
 
-    // Lehrer holen + Fächer mitschicken
+    // ✅ Lehrer + Offers laden (damit wir die "subjects" Liste bauen können)
     const teacher = await prisma.teacher.findUnique({
       where: { id: teacherId },
-      select: { id: true, subject: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        offers: {
+          select: {
+            id: true,
+            subject: { select: { name: true } },
+          },
+        },
+      },
     });
 
     if (!teacher) {
-      return NextResponse.json({ error: "Lehrer nicht gefunden" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Lehrer nicht gefunden" },
+        { status: 404 }
+      );
     }
 
-    const subjects = parseSubjects(teacher.subject);
+    // ✅ Fächerliste aus TeachingOffer (unique)
+    const subjects = Array.from(
+      new Set(
+        teacher.offers
+          .map((o) => o.subject?.name)
+          .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+      )
+    ).sort((a, b) => a.localeCompare(b, "de"));
 
-    // Slots laden:
-    // - Wenn subject gewählt: zeige Slots mit subject === gewähltes Fach ODER subject === "ALL"
-    // - Wenn kein subject gewählt: zeige ALLE Slots (inkl ALL und einzelne Fächer)
+    // ✅ Slots laden (NEUE Logik)
+    // - subject=""    => ALLE Slots (ALL + fach-spezifisch)
+    // - subject="ALL" => NUR ALL Slots (offerId = null)
+    // - subject="BWL" => ALL Slots (offerId = null) ODER Offer mit subject=BWL
     const whereClause: any = { teacherId };
 
-    if (subject && subject !== "ALL") {
-      whereClause.OR = [{ subject: subject }, { subject: "ALL" }];
+    if (subject) {
+      if (subject === "ALL") {
+        whereClause.offerId = null;
+      } else {
+        whereClause.OR = [
+          { offerId: null }, // "ALL"
+          {
+            offer: {
+              subject: {
+                name: subject,
+              },
+            },
+          },
+        ];
+      }
     }
 
     const slots = await prisma.availability.findMany({
       where: whereClause,
+      include: {
+        offer: {
+          include: {
+            subject: true,
+          },
+        },
+      },
       orderBy: [{ date: "asc" }, { start: "asc" }],
     });
 
-    return NextResponse.json({ ok: true, subjects, slots });
+    // Optional: schöner fürs Frontend
+    const mappedSlots = slots.map((s) => ({
+      id: s.id,
+      teacherId: s.teacherId,
+      date: s.date,
+      start: s.start,
+      end: s.end,
+      offerId: s.offerId,
+      subjectName: s.offer?.subject?.name ?? "ALL",
+    }));
+
+    return NextResponse.json({
+      ok: true,
+      teacher: { id: teacher.id, name: teacher.name },
+      subjects,       // ✅ nur die Fächer die der Lehrer anbietet
+      slots: mappedSlots,
+    });
   } catch (err) {
     console.error("GET /api/student/availability error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });

@@ -16,6 +16,10 @@ export async function POST(req: Request) {
     const start = body?.start as string | undefined;
     const end = body?.end as string | undefined;
 
+    // ✅ NEU: note
+    const noteRaw = body?.note as string | undefined;
+    const note = noteRaw?.trim() ? noteRaw.trim() : null;
+
     // optional: wenn du beim Buchen den Slot löschen willst
     const availabilityId = body?.availabilityId as string | undefined;
 
@@ -40,10 +44,13 @@ export async function POST(req: Request) {
     });
 
     if (!teacher) {
-      return NextResponse.json({ error: "Teacher nicht gefunden" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Teacher nicht gefunden" },
+        { status: 404 }
+      );
     }
 
-    // 2) Student finden oder anlegen (damit studentId gültig ist)
+    // 2) Student finden oder anlegen
     const student = await prisma.user.upsert({
       where: { email: studentEmail },
       update: { name: studentName ?? undefined },
@@ -74,6 +81,9 @@ export async function POST(req: Request) {
           priceCents: 0,
           currency: "eur",
           status: "pending",
+
+          // ✅ NEU
+          note,
         },
       });
 

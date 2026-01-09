@@ -1,9 +1,10 @@
+// app/api/search/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
 
-// Hilfsfunktion: sauber & tolerant suchen
+// Hilfsfunktion: tolerant normalisieren
 function normalize(str: string) {
-  return str
+  return (str || "")
     .toLowerCase()
     .trim()
     .replace(/ä/g, "ae")
@@ -13,28 +14,113 @@ function normalize(str: string) {
 }
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const query = normalize(searchParams.get("subject") || "");
+  try {
+    const { searchParams } = new URL(req.url);
 
-  // Alle Lehrer holen
-  const teachers = await prisma.teacher.findMany();
+    const subjectRaw = searchParams.get("subject") || "";
+    const subjectQuery = normalize(subjectRaw);
 
-  // Falls kein Suchbegriff: alle zurückgeben
-  if (!query) {
-    return NextResponse.json({ data: teachers });
+    const studentEmailRaw = (searchParams.get("studentEmail") || "").trim().toLowerCase();
+
+    // Wenn kein Suchbegriff -> optional alle Lehrer zurückgeben (oder leer)
+    if (!subjectQuery) {
+      const teachers = await prisma.teacher.findMany({
+        select: { id: true, name: true, email: true, subject: true },
+        orderBy: { name: "asc" },
+      });
+      return NextResponse.json({ data: teachers });
+    }
+
+    // Wenn keine Student-Email -> wir suchen nur nach Fach (ohne Schulfilter)
+    // (Damit deine Suche auch funktioniert, wenn studentEmail nicht mitgesendet wird.)
+    let student: {
+      id: string;
+      level: any | null;
+      grade: number | null;
+      schoolTrack: any | null;
+      schoolForm: any | null;
+    } | null = null;
+
+    if (studentEmailRaw) {
+      student = await prisma.user.findUnique({
+        where: { email: studentEmailRaw },
+        select: { id: true, level: true, grade: true, schoolTrack: true, schoolForm: true },
+      });
+    }
+
+    // ------------------------------------------------------------
+    // 1) Passende Subjects suchen (Fuzzy über alle Subject-Namen)
+    // ------------------------------------------------------------
+    const allSubjects = await prisma.subject.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+
+    const matchingSubjectIds = allSubjects
+      .filter((s) => {
+        const n = normalize(s.name);
+        return (
+          n.includes(subjectQuery) ||
+          subjectQuery.includes(n) ||
+          n.startsWith(subjectQuery) ||
+          subjectQuery.startsWith(n)
+        );
+      })
+      .map((s) => s.id);
+
+    // Kein Subject gefunden -> keine Lehrer
+    if (matchingSubjectIds.length === 0) {
+      return NextResponse.json({ data: [] });
+    }
+
+    // ------------------------------------------------------------
+    // 2) Offer-Filter bauen (nur wenn wir Schüler-Daten haben)
+    // ------------------------------------------------------------
+    const offerWhere: any = {
+      subjectId: { in: matchingSubjectIds },
+    };
+
+    // Wenn Schüler vollständig ist, filtern wir nach Stufe/Klasse/Schule
+    if (student?.level && student?.grade && student?.schoolTrack && student?.schoolForm) {
+      offerWhere.schoolTrack = student.schoolTrack;
+      offerWhere.schoolForm = student.schoolForm;
+      offerWhere.level = student.level;
+
+      // Klasse innerhalb Range
+      offerWhere.minGrade = { lte: student.grade };
+      offerWhere.maxGrade = { gte: student.grade };
+    }
+
+    // ------------------------------------------------------------
+    // 3) Offers laden + Teacher joinen, dann Teacher-Liste bauen
+    // ------------------------------------------------------------
+    const offers = await prisma.teachingOffer.findMany({
+      where: offerWhere,
+      select: {
+        teacher: {
+          select: { id: true, name: true, email: true, subject: true }, // subject ist dein "Anzeige-String"
+        },
+      },
+    });
+
+    // unique teachers
+    const map = new Map<string, { id: string; name: string; email: string; subject: string }>();
+    for (const o of offers) {
+      if (o.teacher?.id) {
+        map.set(o.teacher.id, {
+          id: o.teacher.id,
+          name: o.teacher.name,
+          email: o.teacher.email,
+          subject: o.teacher.subject ?? "",
+        });
+      }
+    }
+
+    const result = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+    return NextResponse.json({ data: result });
+  } catch (err: any) {
+    console.error("GET /api/search error:", err);
+    return NextResponse.json({ data: [], error: "ServerFehler" }, { status: 500 });
   }
-
-  // Fuzzy-Suche
-  const filtered = teachers.filter((t: any) => {
-    const subj = normalize(t.subject || "");
-
-    return (
-      subj.includes(query) ||     // "mathe" -> "mathematik"
-      query.includes(subj) ||     // falls jemand "mathematik" eingibt
-      subj.startsWith(query) ||   // "bio" -> "biologie"
-      query.startsWith(subj)      // reverse
-    );
-  });
-
-  return NextResponse.json({ data: filtered });
 }

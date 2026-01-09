@@ -4,27 +4,32 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🌱 Seeding database...");
 
-  // Beispiel-Lehrer
-  await prisma.teacher.create({
-    data: {
-      id: "1",
-      name: "Simon",
-      email: "kicker2812@gmail.com",
-      subject: "Mathematik",
-      password: "test123",
-      mustChangePassword: false
-    }
-  });
+  // Standard-Fächer
+  const subjects = [
+    "Mathematik",
+    "Englisch",
+    "Deutsch",
+    "Biologie",
+    "Physik",
+    "Chemie",
+    "Informatik",
+    "Geschichte",
+    "Geographie",
+    "Französisch",
+    "Spanisch",
+    "BWL",
+    "Recht",
+  ];
 
-  // Beispiel-Schüler
-  await prisma.user.create({
-    data: {
-      id: "u1",
-      email: "test@test.com",
-      password: "test123",
-      name: "Test Schüler"
-    }
-  });
+  for (const name of subjects) {
+    await prisma.subject.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+  }
+
+  console.log("✅ Subjects seeded.");
 
   console.log("🌱 Done!");
 }

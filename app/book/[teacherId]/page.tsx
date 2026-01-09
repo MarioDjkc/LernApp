@@ -300,7 +300,7 @@ export default function BookPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Notiz (optional)
+                  Schreibe dem Lehrer, welche Themen du nicht verstehst
                 </label>
                 <textarea
                   value={note}
