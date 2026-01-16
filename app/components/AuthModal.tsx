@@ -1,41 +1,82 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-type Props = {
-  onClose: () => void;
+type Props = { onClose: () => void };
+
+type SchoolTrack = "AHS" | "BHS";
+type SchoolLevel = "UNTERSTUFE" | "OBERSTUFE";
+
+const SCHOOL_FORMS: Record<SchoolTrack, { value: string; label: string }[]> = {
+  AHS: [
+    { value: "AHS_GYMNASIUM", label: "Gymnasium / Klassisches Gymnasium" },
+    { value: "AHS_REALGYMNASIUM", label: "Realgymnasium" },
+    { value: "AHS_WK_REALGYMNASIUM", label: "Wirtschaftsk. Realgymnasium" },
+    { value: "AHS_BORG", label: "BORG (Oberstufenrealgymnasium)" },
+    { value: "AHS_SCHWERPUNKT", label: "AHS mit Schwerpunkt" },
+  ],
+  BHS: [
+    { value: "BHS_HTL", label: "HTL" },
+    { value: "BHS_HAK", label: "HAK" },
+    { value: "BHS_HLW", label: "HLW / HWS" },
+    { value: "BHS_MODE", label: "HLA Mode" },
+    { value: "BHS_KUNST_GESTALTUNG", label: "HLA Kunst & Gestaltung" },
+    { value: "BHS_TOURISMUS", label: "HLA Tourismus" },
+    { value: "BHS_SOZIALPAED", label: "Sozial-/Elementarpädagogik" },
+    { value: "BHS_LAND_FORST", label: "Land- & Forstwirtschaft" },
+  ],
 };
 
-type SchoolType =
-  | "VS"
-  | "MS"
-  | "GYM"
-  | "AHS"
-  | "HTL"
-  | "HAK"
-  | "HLW"
-  | "OTHER";
-
-type SchoolLevel = "UNTERSTUFE" | "OBERSTUFE";
+function gradeOptions(level: SchoolLevel, track: SchoolTrack) {
+  // du wolltest es “komplexer” – aber hier erstmal pragmatisch:
+  // Unterstufe: 1..4
+  // Oberstufe: AHS 1..4, BHS 1..5
+  if (level === "UNTERSTUFE") return [1, 2, 3, 4];
+  return track === "AHS" ? [1, 2, 3, 4] : [1, 2, 3, 4, 5];
+}
 
 export default function AuthModal({ onClose }: Props) {
   const router = useRouter();
 
-  // ✅ NUR registrieren in diesem Modal
+  const [mode, setMode] = useState<"login" | "register">("register"); // ✅ start in register
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // ✅ NEU:
+  // ✅ NEU
+  const [schoolTrack, setSchoolTrack] = useState<SchoolTrack>("AHS");
+  const formOptions = useMemo(() => SCHOOL_FORMS[schoolTrack], [schoolTrack]);
+  const [schoolForm, setSchoolForm] = useState<string>(SCHOOL_FORMS.AHS[0].value);
   const [schoolName, setSchoolName] = useState("");
-  const [schoolType, setSchoolType] = useState<SchoolType>("AHS");
-  const [grade, setGrade] = useState<string>("");
   const [level, setLevel] = useState<SchoolLevel>("UNTERSTUFE");
+  const gradeList = useMemo(() => gradeOptions(level, schoolTrack), [level, schoolTrack]);
+  const [grade, setGrade] = useState<number>(gradeList[0]);
 
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  const switchTo = (m: "login" | "register") => {
+    setMode(m);
+    setMsg(null);
+  };
+
+  // Track Wechsel -> Form reset + grade reset
+  function onTrackChange(v: SchoolTrack) {
+    setSchoolTrack(v);
+    const first = SCHOOL_FORMS[v][0]?.value || "";
+    setSchoolForm(first);
+    const grades = gradeOptions(level, v);
+    setGrade(grades[0]);
+  }
+
+  // Level Wechsel -> grade reset
+  function onLevelChange(v: SchoolLevel) {
+    setLevel(v);
+    const grades = gradeOptions(v, schoolTrack);
+    setGrade(grades[0]);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,40 +84,54 @@ export default function AuthModal({ onClose }: Props) {
     setMsg(null);
 
     try {
-      // 1) Nutzer anlegen
-      const res = await fetch("/api/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
+      if (mode === "register") {
+        const res = await fetch("/api/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            email,
+            password,
+
+            // ✅ NEU: richtige Felder
+            schoolTrack,
+            schoolForm,
+            schoolName,
+            level,
+            grade,
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Registrierung fehlgeschlagen");
+
+        // direkt einloggen (Student Provider!)
+        const result = await signIn("student-credentials", {
+          redirect: false,
           email,
           password,
+        });
 
-          // ✅ NEU:
-          schoolName,
-          schoolType,
-          grade: Number(grade),
-          level,
-        }),
-      });
+        if (result?.ok) {
+          onClose();
+          router.push("/student/dashboard");
+          return;
+        }
+        throw new Error(result?.error || "Login nach Registrierung fehlgeschlagen");
+      } else {
+        const result = await signIn("student-credentials", {
+          redirect: false,
+          email,
+          password,
+        });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Registrierung fehlgeschlagen");
-
-      // 2) Direkt einloggen (SCHÜLER provider!)
-      const result = await signIn("student-credentials", {
-        redirect: false,
-        email,
-        password,
-      });
-
-      if (result?.ok) {
-        onClose();
-        router.push("/student/dashboard");
-        return;
+        if (result?.ok) {
+          onClose();
+          router.push("/student/dashboard");
+          return;
+        }
+        setMsg("E-Mail oder Passwort ist falsch");
       }
-
-      throw new Error(result?.error || "Automatisches Login nach Registrierung fehlgeschlagen");
     } catch (err: any) {
       setMsg(err?.message ?? "Unbekannter Fehler");
     } finally {
@@ -101,22 +156,115 @@ export default function AuthModal({ onClose }: Props) {
           ✕
         </button>
 
-        <h2 className="text-center font-semibold mb-4">Registrieren</h2>
+        {/* Tabs */}
+        <div className="flex mb-6 border-b">
+          <button
+            className={`flex-1 py-2 font-semibold ${
+              mode === "register"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-500"
+            }`}
+            onClick={() => switchTo("register")}
+            type="button"
+          >
+            Registrieren
+          </button>
+          <button
+            className={`flex-1 py-2 font-semibold ${
+              mode === "login"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-500"
+            }`}
+            onClick={() => switchTo("login")}
+            type="button"
+          >
+            Anmelden
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Max Mustermann"
-              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          {mode === "register" && (
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                  placeholder="Max Mustermann"
+                />
+              </div>
 
-          {/* E-Mail */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Schultyp</label>
+                <select
+                  value={schoolTrack}
+                  onChange={(e) => onTrackChange(e.target.value as SchoolTrack)}
+                  className="w-full border rounded-lg px-3 py-2"
+                >
+                  <option value="AHS">AHS</option>
+                  <option value="BHS">BHS</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Schulform</label>
+                <select
+                  value={schoolForm}
+                  onChange={(e) => setSchoolForm(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2"
+                >
+                  {formOptions.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Schulname</label>
+                <input
+                  type="text"
+                  value={schoolName}
+                  onChange={(e) => setSchoolName(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="z.B. HTL Salzburg"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Stufe</label>
+                  <select
+                    value={level}
+                    onChange={(e) => onLevelChange(e.target.value as SchoolLevel)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  >
+                    <option value="UNTERSTUFE">Unterstufe</option>
+                    <option value="OBERSTUFE">Oberstufe</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Klasse</label>
+                  <select
+                    value={grade}
+                    onChange={(e) => setGrade(Number(e.target.value))}
+                    className="w-full border rounded-lg px-3 py-2"
+                  >
+                    {gradeList.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
+
           <div>
             <label className="block text-sm font-medium mb-1">E-Mail</label>
             <input
@@ -124,12 +272,11 @@ export default function AuthModal({ onClose }: Props) {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="max@mail.com"
               className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+              placeholder="max@mail.com"
             />
           </div>
 
-          {/* Passwort */}
           <div>
             <label className="block text-sm font-medium mb-1">Passwort</label>
             <input
@@ -137,75 +284,19 @@ export default function AuthModal({ onClose }: Props) {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
               placeholder="••••••••"
-              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
             />
-          </div>
-
-          {/* ✅ NEU: Schule */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Schule</label>
-            <input
-              type="text"
-              required
-              value={schoolName}
-              onChange={(e) => setSchoolName(e.target.value)}
-              placeholder="z.B. HTL Wien 10"
-              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* ✅ NEU: Schultyp */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Schultyp</label>
-            <select
-              value={schoolType}
-              onChange={(e) => setSchoolType(e.target.value as SchoolType)}
-              className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="VS">VS</option>
-              <option value="MS">MS</option>
-              <option value="GYM">GYM</option>
-              <option value="AHS">AHS</option>
-              <option value="HTL">HTL</option>
-              <option value="HAK">HAK</option>
-              <option value="HLW">HLW</option>
-              <option value="OTHER">Sonstiges</option>
-            </select>
-          </div>
-
-          {/* ✅ NEU: Klasse */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Klasse</label>
-            <input
-              type="number"
-              min={1}
-              max={13}
-              required
-              value={grade}
-              onChange={(e) => setGrade(e.target.value)}
-              placeholder="z.B. 3"
-              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* ✅ NEU: Unterstufe/Oberstufe */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Stufe
-            </label>
-            <select
-              value={level}
-              onChange={(e) => setLevel(e.target.value as SchoolLevel)}
-              className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="UNTERSTUFE">Unterstufe</option>
-              <option value="OBERSTUFE">Oberstufe</option>
-            </select>
           </div>
 
           {msg && (
-            <p className="text-sm text-red-600">
+            <p
+              className={`text-sm ${
+                /fehler|falsch|existiert|ungültig|failed/i.test(msg)
+                  ? "text-red-600"
+                  : "text-green-700"
+              }`}
+            >
               {msg}
             </p>
           )}
@@ -215,21 +306,38 @@ export default function AuthModal({ onClose }: Props) {
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold disabled:opacity-60"
           >
-            {loading ? "Bitte warten…" : "Konto erstellen & einloggen"}
+            {loading
+              ? "Bitte warten…"
+              : mode === "login"
+              ? "Einloggen"
+              : "Konto erstellen & einloggen"}
           </button>
         </form>
 
         <p className="text-center text-sm text-gray-600 mt-4">
-          Schon angemeldet?{" "}
-          <button
-            onClick={() => {
-              onClose();
-              router.push("/auth/login");
-            }}
-            className="text-blue-600 hover:underline font-medium"
-          >
-            Hier anmelden
-          </button>
+          {mode === "login" ? (
+            <>
+              Noch kein Konto?{" "}
+              <button
+                onClick={() => switchTo("register")}
+                className="text-blue-600 hover:underline font-medium"
+                type="button"
+              >
+                Registrieren
+              </button>
+            </>
+          ) : (
+            <>
+              Schon registriert?{" "}
+              <button
+                onClick={() => switchTo("login")}
+                className="text-blue-600 hover:underline font-medium"
+                type="button"
+              >
+                Anmelden
+              </button>
+            </>
+          )}
         </p>
       </div>
     </div>

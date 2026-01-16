@@ -3,44 +3,87 @@ import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
 import bcrypt from "bcryptjs";
 
+type SchoolTrack = "AHS" | "BHS" | "OTHER";
+type SchoolLevel = "UNTERSTUFE" | "OBERSTUFE";
+
+// Muss zu deinem Prisma enum SchoolForm passen:
+type SchoolForm =
+  | "AHS_GYMNASIUM"
+  | "AHS_REALGYMNASIUM"
+  | "AHS_WK_REALGYMNASIUM"
+  | "AHS_BORG"
+  | "AHS_SCHWERPUNKT"
+  | "BHS_HTL"
+  | "BHS_HAK"
+  | "BHS_HLW"
+  | "BHS_MODE"
+  | "BHS_KUNST_GESTALTUNG"
+  | "BHS_TOURISMUS"
+  | "BHS_SOZIALPAED"
+  | "BHS_LAND_FORST"
+  | "OTHER";
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const name = (body?.name ?? "").trim();
-    const email = (body?.email ?? "").trim().toLowerCase();
-    const password = body?.password ?? "";
+    const name = (body?.name ?? "").toString().trim();
+    const email = (body?.email ?? "").toString().trim().toLowerCase();
+    const password = (body?.password ?? "").toString();
 
-    // ✅ NEU:
-    const schoolName = (body?.schoolName ?? "").trim();
-    const schoolType = body?.schoolType ?? null; // "AHS" | "HTL" | ...
+    // ✅ NEU (Schüler-Schulinfo)
+    const schoolTrack = body?.schoolTrack as SchoolTrack | undefined;
+    const schoolForm = body?.schoolForm as SchoolForm | undefined;
+    const schoolName = (body?.schoolName ?? "").toString().trim();
+    const level = body?.level as SchoolLevel | undefined;
     const gradeRaw = body?.grade;
-    const level = body?.level ?? null; // "UNTERSTUFE" | "OBERSTUFE"
+
+    const grade =
+      gradeRaw === undefined || gradeRaw === null || gradeRaw === ""
+        ? null
+        : Number(gradeRaw);
 
     if (!email || !password) {
-      return NextResponse.json({ error: "E-Mail und Passwort sind Pflicht." }, { status: 400 });
+      return NextResponse.json(
+        { error: "E-Mail oder Passwort fehlt" },
+        { status: 400 }
+      );
     }
 
-    // optional aber sinnvoll:
-    if (!schoolName) {
-      return NextResponse.json({ error: "Schule ist Pflicht." }, { status: 400 });
-    }
-    if (!gradeRaw && gradeRaw !== 0) {
-      return NextResponse.json({ error: "Klasse ist Pflicht." }, { status: 400 });
-    }
-
-    const grade = Number(gradeRaw);
-    if (!Number.isFinite(grade) || grade < 1 || grade > 13) {
-      return NextResponse.json({ error: "Klasse muss eine Zahl zwischen 1 und 13 sein." }, { status: 400 });
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: "Passwort muss mindestens 6 Zeichen haben" },
+        { status: 400 }
+      );
     }
 
-    if (!level || (level !== "UNTERSTUFE" && level !== "OBERSTUFE")) {
-      return NextResponse.json({ error: "Bitte Unterstufe/Oberstufe auswählen." }, { status: 400 });
+    // Optional: wenn du willst, dass Schulinfos Pflicht sind:
+    // (du kannst das lockerer machen)
+    if (!schoolTrack || !schoolForm || !level || !schoolName || !grade) {
+      return NextResponse.json(
+        { error: "Bitte Schule, Schultyp, Schulform, Stufe und Klasse ausfüllen." },
+        { status: 400 }
+      );
     }
 
-    const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists) {
-      return NextResponse.json({ error: "E-Mail ist bereits registriert." }, { status: 400 });
+    if (!Number.isInteger(grade) || grade < 1 || grade > 8) {
+      // ⚠️ Du kannst hier je nach Track/Level differenzieren, erstmal simpel
+      return NextResponse.json(
+        { error: "Klasse muss eine Zahl sein (z.B. 1–8)." },
+        { status: 400 }
+      );
+    }
+
+    const existing = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        { error: "Ein Konto mit dieser E-Mail existiert bereits." },
+        { status: 400 }
+      );
     }
 
     const hash = await bcrypt.hash(password, 10);
@@ -52,11 +95,12 @@ export async function POST(req: Request) {
         password: hash,
         role: "student",
 
-        // ✅ NEU:
+        // ✅ RICHTIG (statt schoolType!)
+        schoolTrack,
+        schoolForm,
         schoolName,
-        schoolType,
-        grade,
         level,
+        grade,
       },
       select: { id: true, email: true, name: true },
     });

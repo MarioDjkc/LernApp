@@ -4,58 +4,117 @@ import prisma from "@/app/lib/prisma";
 
 export const runtime = "nodejs";
 
+type TrackValue = "AHS" | "BHS" | "ALL";
+type LevelValue = "UNTERSTUFE" | "OBERSTUFE" | "ALL";
+type FormValue = string | "ALL";
+
+const AHS_FORMS = [
+  "AHS_GYMNASIUM",
+  "AHS_REALGYMNASIUM",
+  "AHS_WK_REALGYMNASIUM",
+  "AHS_BORG",
+  "AHS_SCHWERPUNKT",
+] as const;
+
+const BHS_FORMS = [
+  "BHS_HTL",
+  "BHS_HAK",
+  "BHS_HLW",
+  "BHS_MODE",
+  "BHS_KUNST_GESTALTUNG",
+  "BHS_TOURISMUS",
+  "BHS_SOZIALPAED",
+  "BHS_LAND_FORST",
+] as const;
+
+/**
+ * ✅ Klassenlogik (deine Regeln)
+ * Track=ALL + Level=ALL -> 1..9
+ * Track=AHS + Level=ALL -> 1..8
+ * Track=AHS + Unterstufe -> 1..4
+ * Track=AHS + Oberstufe -> 5..8
+ * Track=BHS -> Level automatisch OBERSTUFE, 5..9
+ */
+function gradeRangeFor(track: TrackValue, level: LevelValue) {
+  if (track === "BHS") return { min: 5, max: 9 };
+
+  if (track === "AHS") {
+    if (level === "UNTERSTUFE") return { min: 1, max: 4 };
+    if (level === "OBERSTUFE") return { min: 5, max: 8 };
+    return { min: 1, max: 8 };
+  }
+
+  // track === "ALL"
+  if (level === "ALL") return { min: 1, max: 9 };
+  return { min: 1, max: 9 };
+}
+
+function clamp(n: number, min: number, max: number) {
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
+
+function normalizeEmail(email: string) {
+  return (email || "").trim().toLowerCase();
+}
+
+function isValidForm(form: string) {
+  return typeof form === "string" && form.length > 0;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
 
-    const email = (body?.email as string | undefined)?.trim().toLowerCase();
+    const email = normalizeEmail(body?.email as string | undefined);
     const subjectId = body?.subjectId as string | undefined;
 
-    const schoolTrack = body?.schoolTrack as "AHS" | "BHS" | "OTHER" | undefined;
-    const schoolForm = body?.schoolForm as string | undefined;
-    const level = body?.level as "UNTERSTUFE" | "OBERSTUFE" | undefined;
+    const schoolTrack = body?.schoolTrack as TrackValue | undefined;
+    const schoolForm = (body?.schoolForm as FormValue | undefined) ?? "ALL";
+    const level = body?.level as LevelValue | undefined;
 
-    const minGrade = Number(body?.minGrade);
-    const maxGrade = Number(body?.maxGrade);
+    const minGradeRaw = Number(body?.minGrade);
+    const maxGradeRaw = Number(body?.maxGrade);
 
-    if (!email || !subjectId || !schoolTrack || !schoolForm || !level) {
+    if (!email || !subjectId || !schoolTrack || !level) {
       return NextResponse.json(
-        { error: "Fehlende Felder (email, subjectId, schoolTrack, schoolForm, level)" },
+        { error: "Fehlende Felder (email, subjectId, schoolTrack, level)" },
         { status: 400 }
       );
     }
 
-    if (!Number.isFinite(minGrade) || !Number.isFinite(maxGrade)) {
-      return NextResponse.json({ error: "minGrade/maxGrade müssen Zahlen sein." }, { status: 400 });
-    }
-
-    if (minGrade < 1 || maxGrade < 1 || minGrade > maxGrade) {
+    if (!Number.isFinite(minGradeRaw) || !Number.isFinite(maxGradeRaw)) {
       return NextResponse.json(
-        { error: "Ungültiger Klassenbereich (minGrade/maxGrade)." },
+        { error: "minGrade/maxGrade müssen Zahlen sein." },
         { status: 400 }
       );
     }
 
-    // optional: harte Grenzen je Track
-    const hardMax = schoolTrack === "AHS" ? 4 : schoolTrack === "BHS" ? 5 : 5;
-    if (maxGrade > hardMax) {
-      return NextResponse.json(
-        { error: `Maximale Klasse für ${schoolTrack} ist ${hardMax}.` },
-        { status: 400 }
-      );
-    }
-
-    // Teacher finden
     const teacher = await prisma.teacher.findUnique({
       where: { email },
-      select: { id: true },
+      select: { id: true, unterstufeOnly: true },
     });
 
     if (!teacher) {
       return NextResponse.json({ error: "Teacher nicht gefunden." }, { status: 404 });
     }
 
-    // Subject existiert?
+    // ✅ Unterstufe-only Regeln
+    if (teacher.unterstufeOnly) {
+      if (schoolTrack === "BHS" || schoolTrack === "ALL") {
+        return NextResponse.json(
+          { error: "Unterstufe-Lehrer darf kein BHS/Alle als Schultyp wählen." },
+          { status: 400 }
+        );
+      }
+      if (level === "OBERSTUFE" || level === "ALL") {
+        return NextResponse.json(
+          { error: "Unterstufe-Lehrer darf keine Oberstufe/Alle als Stufe wählen." },
+          { status: 400 }
+        );
+      }
+    }
+
     const subject = await prisma.subject.findUnique({
       where: { id: subjectId },
       select: { id: true },
@@ -65,34 +124,121 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Fach (Subject) nicht gefunden." }, { status: 404 });
     }
 
-    // Offer erstellen (oder upsert gegen Duplikate)
-    const created = await prisma.teachingOffer.create({
-      data: {
-        teacherId: teacher.id,
-        subjectId: subject.id,
-        schoolTrack,
-        schoolForm: schoolForm as any,
-        level,
-        minGrade,
-        maxGrade,
-      },
-      include: {
-        subject: true,
-      },
-    });
+    // ✅ Tracks expandieren
+    const tracks: ("AHS" | "BHS")[] =
+      schoolTrack === "ALL"
+        ? teacher.unterstufeOnly
+          ? ["AHS"]
+          : ["AHS", "BHS"]
+        : [schoolTrack];
 
-    return NextResponse.json({ ok: true, data: created });
-  } catch (err: any) {
-    console.error("POST /api/teacher/offers/create error:", err);
+    // ✅ Levels expandieren (BHS immer Oberstufe)
+    const levelsForTrack = (t: "AHS" | "BHS"): ("UNTERSTUFE" | "OBERSTUFE")[] => {
+      if (t === "BHS") return ["OBERSTUFE"];
+      if (level === "ALL") return ["UNTERSTUFE", "OBERSTUFE"];
+      return [level as any];
+    };
 
-    // Unique constraint (wenn du @@unique gesetzt hast)
-    if (err?.code === "P2002") {
+    // ✅ Forms expandieren: WICHTIG
+    // Jetzt gilt: "ALL" => wir erstellen einzelne Offers für ALLE Formen (nicht ein Offer mit schoolForm=ALL)
+    const formsForTrack = (t: "AHS" | "BHS"): string[] => {
+      if (schoolForm === "ALL") {
+        return t === "AHS" ? [...AHS_FORMS] as any : [...BHS_FORMS] as any;
+      }
+
+      const v = String(schoolForm);
+      if (!isValidForm(v)) return [];
+
+      const allowed = t === "AHS"
+        ? new Set<string>(AHS_FORMS as any)
+        : new Set<string>(BHS_FORMS as any);
+
+      return allowed.has(v) ? [v] : [];
+    };
+
+    // ✅ Kombos bauen
+    const combos: {
+      schoolTrack: "AHS" | "BHS";
+      schoolForm: string;
+      level: "UNTERSTUFE" | "OBERSTUFE";
+      minGrade: number;
+      maxGrade: number;
+    }[] = [];
+
+    for (const t of tracks) {
+      const ls = levelsForTrack(t);
+      const fs = formsForTrack(t);
+
+      for (const l of ls) {
+        const range = gradeRangeFor(t as any, l as any);
+
+        const safeMin = clamp(minGradeRaw, range.min, range.max);
+        const safeMax = clamp(maxGradeRaw, range.min, range.max);
+
+        const finalMin = Math.min(safeMin, safeMax);
+        const finalMax = Math.max(safeMin, safeMax);
+
+        for (const f of fs) {
+          combos.push({
+            schoolTrack: t,
+            schoolForm: f,
+            level: l,
+            minGrade: finalMin,
+            maxGrade: finalMax,
+          });
+        }
+      }
+    }
+
+    if (combos.length === 0) {
       return NextResponse.json(
-        { error: "Dieses Angebot existiert bereits." },
+        { error: "Ungültige Auswahl (Track/Form/Stufe passen nicht zusammen)." },
         { status: 400 }
       );
     }
 
+    // ✅ Ohne createMany(skipDuplicates) => wir erstellen einzeln und ignorieren Duplikate (P2002)
+    let createdCount = 0;
+    let skippedCount = 0;
+
+    for (const c of combos) {
+      try {
+        await prisma.teachingOffer.create({
+          data: {
+            teacherId: teacher.id,
+            subjectId: subject.id,
+            schoolTrack: c.schoolTrack as any,
+            schoolForm: c.schoolForm as any,
+            level: c.level as any,
+            minGrade: c.minGrade,
+            maxGrade: c.maxGrade,
+          },
+        });
+        createdCount += 1;
+      } catch (err: any) {
+        if (err?.code === "P2002") {
+          skippedCount += 1;
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    // neu laden
+    const latest = await prisma.teachingOffer.findMany({
+      where: { teacherId: teacher.id },
+      orderBy: { createdAt: "desc" },
+      include: { subject: true },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      createdCount,
+      skippedCount,
+      data: latest,
+    });
+  } catch (err: any) {
+    console.error("POST /api/teacher/offers/create error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }
 }

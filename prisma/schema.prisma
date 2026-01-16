@@ -9,11 +9,6 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-/**
- * Österreich – Schultypen (feingranular)
- * AHS: Unterstufe 1–4, Oberstufe 1–4
- * BHS: Oberstufe 1–5
- */
 enum SchoolTrack {
   AHS
   BHS
@@ -24,10 +19,10 @@ enum SchoolLevel {
   OBERSTUFE
 }
 
-/**
- * Konkrete Schulformen/Schulzweige
- */
 enum SchoolForm {
+  // ✅ "Alle" möglich
+  ALL
+
   // --- AHS ---
   AHS_GYMNASIUM
   AHS_REALGYMNASIUM
@@ -48,9 +43,6 @@ enum SchoolForm {
   OTHER
 }
 
-/**
- * Schüler
- */
 model User {
   id               String   @id @default(uuid())
   email            String   @unique
@@ -60,7 +52,6 @@ model User {
   stripeCustomerId String?
   createdAt        DateTime @default(now())
 
-  // ✅ Schul-Infos (NEU)
   schoolTrack SchoolTrack?
   schoolForm  SchoolForm?
   schoolName  String?
@@ -68,45 +59,43 @@ model User {
   grade       Int?
 
   bookings Booking[] @relation("studentBookings")
+
+  @@index([email])
+  @@index([schoolTrack, schoolForm, level, grade])
 }
 
-/**
- * Lehrer
- */
 model Teacher {
   id    String @id @default(uuid())
   name  String
   email String @unique
 
-  // ⚠️ Übergang: im UI/API ist subject noch String.
-  // TeachingOffer ist die "richtige" Logik, subject bleibt erstmal für Kompatibilität.
+  // Übergang: kommt aus deinem bisherigen UI ("Mathematik, Englisch")
   subject String
 
   password           String
   mustChangePassword Boolean @default(true)
 
+  // ✅ Unterstufe-only Flag (true = nur Unterstufe; false = Unter + Ober)
+  unterstufeOnly Boolean @default(false)
+
   bookings            Booking[]            @relation("teacherBookings")
   passwordResetTokens PasswordResetToken[]
   chat                Chat[]
   availabilities      Availability[]
+  offers              TeachingOffer[]
 
-  // ✅ NEU: Angebote des Lehrers
-  offers TeachingOffer[]
+  @@index([email])
 }
 
-/**
- * Fächer-Lookup
- */
 model Subject {
   id   String @id @default(uuid())
   name String @unique
 
   offers TeachingOffer[]
+
+  @@index([name])
 }
 
-/**
- * Lehrer-Angebote
- */
 model TeachingOffer {
   id String @id @default(uuid())
 
@@ -114,7 +103,7 @@ model TeachingOffer {
   subjectId String
 
   schoolTrack SchoolTrack
-  schoolForm  SchoolForm
+  schoolForm  SchoolForm // ✅ kann ALL sein
   level       SchoolLevel
 
   minGrade Int
@@ -125,41 +114,72 @@ model TeachingOffer {
   teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
-  // ✅ NEU: Gegenrelation (WICHTIG)
+  // ✅ Gegenrelation für Availability
   availabilities Availability[]
 
+  // verhindert exakt doppelte Angebote
   @@unique([teacherId, subjectId, schoolForm, level, minGrade, maxGrade])
   @@index([teacherId])
   @@index([subjectId])
-  @@index([schoolForm, level, minGrade, maxGrade])
+  // Für Filter/Suche nach Zielgruppe
+  @@index([schoolTrack, schoolForm, level, minGrade, maxGrade])
 }
 
-/**
- * Buchungen
- */
+model Availability {
+  id        String   @id @default(uuid())
+  teacherId String
+  date      DateTime
+  start     String
+  end       String
+
+  // ✅ Angebot optional (null = "für alle / nicht zugeordnet")
+  offerId String?
+  offer   TeachingOffer? @relation(fields: [offerId], references: [id], onDelete: SetNull)
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  // ✅ FIX: Gegenrelation zu Booking (mit RELATIONSNAME!)
+  bookings Booking[] @relation("BookingAvailability")
+
+  @@index([teacherId])
+  @@index([offerId])
+  @@index([date])
+}
+
 model Booking {
-  id                    String   @id @default(uuid())
-  studentId             String
-  teacherId             String
-  start                 DateTime
-  end                   DateTime
-  priceCents            Int
-  currency              String   @default("eur")
-  status                String   @default("pending")
+  id        String   @id @default(uuid())
+  studentId String
+  teacherId String
+  start     DateTime
+  end       DateTime
+
+  priceCents Int
+  currency   String   @default("eur")
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+  note       String?
+
   stripeCustomerId      String?
   stripePaymentMethodId String?
   stripeSetupIntentId   String?
   stripePaymentIntentId String?
-  createdAt             DateTime @default(now())
-  note                  String?
 
   student User    @relation("studentBookings", fields: [studentId], references: [id])
   teacher Teacher @relation("teacherBookings", fields: [teacherId], references: [id], onDelete: Cascade)
+
+  // ✅ FIX: gleiche Relation wie in Availability.bookings
+  availabilityId String?
+  availability   Availability? @relation("BookingAvailability", fields: [availabilityId], references: [id], onDelete: SetNull)
+
+  // ✅ OPTIONAL aber sauber: Chat kann auf Booking zeigen
+  chats Chat[]
+
+  @@index([studentId])
+  @@index([teacherId])
+  @@index([start])
+  @@index([availabilityId])
 }
 
-/**
- * Lehrerbewerbungen
- */
 model TeacherApplication {
   id        String   @id @default(cuid())
   name      String
@@ -170,31 +190,35 @@ model TeacherApplication {
   createdAt DateTime @default(now())
 }
 
-/**
- * Reset Tokens
- */
 model PasswordResetToken {
   id        String   @id @default(cuid())
   token     String   @unique
   teacherId String
-  teacher   Teacher  @relation(fields: [teacherId], references: [id])
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   expiresAt DateTime
+
+  @@index([teacherId])
+  @@index([expiresAt])
 }
 
-/**
- * Chat
- */
 model Chat {
-  id           String  @id @default(uuid())
+  id           String @id @default(uuid())
   teacherId    String
   studentEmail String
-  bookingId    String?
+
+  // ✅ OPTIONAL Relation zu Booking (wenn du’s behalten willst)
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt
 
   messages ChatMessage[]
-  teacher  Teacher       @relation(fields: [teacherId], references: [id])
+  teacher  Teacher       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([teacherId])
+  @@index([studentEmail])
+  @@index([bookingId])
 }
 
 model ChatMessage {
@@ -204,22 +228,8 @@ model ChatMessage {
   text      String
   createdAt DateTime @default(now())
 
-  chat Chat @relation(fields: [chatId], references: [id])
-}
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
-model Availability {
-  id        String   @id @default(uuid())
-  teacherId String
-  date      DateTime
-  start     String
-  end       String
-
-  // 🔗 Slot gehört zu einem konkreten Angebot
-  offerId String?
-  offer   TeachingOffer? @relation(fields: [offerId], references: [id], onDelete: SetNull)
-
-  teacher Teacher @relation(fields: [teacherId], references: [id])
-
-  @@index([teacherId])
-  @@index([offerId])
+  @@index([chatId])
+  @@index([createdAt])
 }

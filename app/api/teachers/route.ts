@@ -7,16 +7,27 @@ import crypto from "crypto";
 
 export const runtime = "nodejs";
 
-type StudentLevel = "UNTERSTUFE" | "OBERSTUFE";
+// Hilfsfunktion: "Mathe, Englisch, Mathe" -> ["Mathe","Englisch"]
+function uniqueSubjectsFromString(s: string | null | undefined): string[] {
+  if (!s) return [];
+  const parts = s
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
 
-/**
- * 🔹 GET – Lehrer abrufen (mit Level-Filter abhängig vom Schüler)
- *
- * Regel:
- * - Schüler OBERSTUFE => nur Lehrer, die MINDESTENS EIN Angebot (TeachingOffer) für OBERSTUFE haben
- * - Schüler UNTERSTUFE => Lehrer, die irgendein Angebot haben (UNTERSTUFE oder OBERSTUFE)
- * - Ohne studentEmail => alle Lehrer (optional: nur Lehrer mit offers – je nachdem wie du willst)
- */
+  // unique + Reihenfolge behalten
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const p of parts) {
+    const key = p.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(p);
+    }
+  }
+  return out;
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -24,103 +35,70 @@ export async function GET(req: Request) {
       .trim()
       .toLowerCase();
 
-    let studentLevel: StudentLevel | null = null;
-
-    if (studentEmail) {
-      const student = await prisma.user.findUnique({
-        where: { email: studentEmail },
-        select: { level: true },
-      });
-
-      studentLevel = (student?.level as StudentLevel | null) ?? null;
-    }
-
-    // ✅ Filter über offers.level (NICHT teacher.level)
-    const where =
-      studentLevel === "OBERSTUFE"
-        ? {
-            offers: {
-              some: { level: "OBERSTUFE" },
-            },
-          }
-        : studentLevel === "UNTERSTUFE"
-        ? {
-            offers: {
-              some: {
-                level: { in: ["UNTERSTUFE", "OBERSTUFE"] },
-              },
-            },
-          }
-        : {}; // kein Filter (alle Lehrer)
+    // Schülerprofil optional laden (wenn du später filtern willst)
+    // Aktuell: wir zeigen alle Lehrer, aber "subject" sauber.
+    // (Wenn du Level/Track filtern willst, machen wir das über Offers - nicht über teacher.level)
+    void studentEmail;
 
     const teachers = await prisma.teacher.findMany({
-      where,
-      orderBy: { name: "asc" },
       select: {
         id: true,
         name: true,
         email: true,
-
-        // ✅ subject bleibt (Übergang / Anzeige)
-        subject: true,
-
-        // ✅ wir holen Angebote, damit wir "Fächer" anzeigen können, die wirklich existieren
+        subject: true, // bleibt dein String-Feld
         offers: {
           select: {
-            level: true,
             subject: { select: { name: true } },
           },
         },
       },
+      orderBy: { name: "asc" },
     });
 
-    // ✅ Ausgabe so formen, dass dein Frontend weiter "subject: string" bekommt
     const mapped = teachers.map((t) => {
-      const offerSubjects = (t.offers || [])
-        .map((o) => o.subject?.name)
-        .filter(Boolean) as string[];
+      // 1) Primär: teacher.subject (String)
+      let subjects = uniqueSubjectsFromString(t.subject);
 
-      // Wenn Offers vorhanden -> Liste der echten Subjects anzeigen
-      // sonst fallback auf teacher.subject
-      const displaySubject =
-        offerSubjects.length > 0 ? offerSubjects.join(", ") : t.subject;
+      // 2) Fallback: wenn teacher.subject leer ist -> aus offers ziehen
+      if (subjects.length === 0 && t.offers?.length) {
+        const seen = new Set<string>();
+        const out: string[] = [];
+        for (const o of t.offers) {
+          const name = o.subject?.name?.trim();
+          if (!name) continue;
+          const key = name.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            out.push(name);
+          }
+        }
+        subjects = out;
+      }
 
       return {
         id: t.id,
         name: t.name,
         email: t.email,
-        subject: displaySubject,
+        subject: subjects.join(", "), // ✅ genau das willst du in der Karte sehen
       };
     });
 
     return NextResponse.json({ data: mapped });
   } catch (err) {
     console.error("GET /api/teachers error:", err);
-    return NextResponse.json(
-      { data: [], error: "ServerFehler" },
-      { status: 500 }
-    );
+    return NextResponse.json({ data: [], error: "ServerFehler" }, { status: 500 });
   }
 }
 
-/**
- * 🔹 POST – Admin legt einen Lehrer an
- * Wichtig: Teacher hat KEIN level mehr.
- * Level wird später über TeachingOffers gesetzt (Meine Fächer).
- */
+// POST bleibt wie du es hast – nur falls du es brauchst, ist es hier mit drin:
 export async function POST(req: Request) {
   try {
     const { name, email, subject, adminKey } = await req.json();
 
-    // Admin-Key validieren
     if (adminKey !== process.env.ADMIN_KEY) {
-      return NextResponse.json(
-        { error: "Ungültiger Admin-Key." },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Ungültiger Admin-Key." }, { status: 401 });
     }
 
-    // Pflichtfelder prüfen
     if (!name || !email || !subject) {
       return NextResponse.json(
         { error: "Bitte name, email und subject angeben." },
@@ -128,7 +106,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Existiert schon?
     const exists = await prisma.teacher.findUnique({ where: { email } });
     if (exists) {
       return NextResponse.json(
@@ -137,16 +114,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // Temp-Passwort generieren
     const tempPassword = Math.random().toString(36).slice(-10);
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-    // Lehrer anlegen
     const created = await prisma.teacher.create({
       data: {
         name,
         email,
-        subject, // ✅ bleibt subject
+        subject, // bleibt subject (String)
         password: hashedPassword,
         mustChangePassword: true,
       },
@@ -159,18 +134,16 @@ export async function POST(req: Request) {
       },
     });
 
-    // Reset-Token erzeugen
     const token = crypto.randomBytes(32).toString("hex");
 
     await prisma.passwordResetToken.create({
       data: {
         token,
         teacherId: created.id,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
     });
 
-    // E-Mail senden
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
@@ -195,7 +168,11 @@ export async function POST(req: Request) {
       `,
     });
 
-    return NextResponse.json({ ok: true, created, tempPassword });
+    return NextResponse.json({
+      ok: true,
+      created,
+      tempPassword,
+    });
   } catch (err) {
     console.error("POST /api/teachers error:", err);
     return NextResponse.json({ error: "ServerFehler" }, { status: 500 });

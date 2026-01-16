@@ -7,8 +7,8 @@ export const runtime = "nodejs";
 export async function GET() {
   try {
     const subjects = await prisma.subject.findMany({
-      orderBy: { name: "asc" },
       select: { id: true, name: true },
+      orderBy: { name: "asc" },
     });
 
     return NextResponse.json({ data: subjects });

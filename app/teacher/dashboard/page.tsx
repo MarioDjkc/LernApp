@@ -9,16 +9,24 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 
+type StudentInfo = {
+  id: string;
+  name: string | null;
+  email: string;
+  schoolName: string | null;
+  schoolTrack: "AHS" | "BHS" | null;
+  schoolForm: string | null; // enum string
+  level: "UNTERSTUFE" | "OBERSTUFE" | null;
+  grade: number | null;
+};
+
 type Booking = {
   id: string;
   start: string;
   end: string;
   status: "pending" | "accepted" | "declined";
-  note?: string | null; // ✅ NEU
-  student?: {
-    name: string | null;
-    email: string;
-  } | null;
+  note?: string | null;
+  student?: StudentInfo | null;
 };
 
 function escapeHtml(input: string) {
@@ -28,6 +36,38 @@ function escapeHtml(input: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function labelLevel(level: StudentInfo["level"]) {
+  if (!level) return "—";
+  return level === "UNTERSTUFE" ? "Unterstufe" : "Oberstufe";
+}
+
+function labelTrack(track: StudentInfo["schoolTrack"]) {
+  if (!track) return "—";
+  return track;
+}
+
+const LABEL_FORM: Record<string, string> = {
+  ALL: "Alle",
+  AHS_GYMNASIUM: "Gymnasium / Klassisches Gymnasium",
+  AHS_REALGYMNASIUM: "Realgymnasium",
+  AHS_WK_REALGYMNASIUM: "Wirtschaftskundliches Realgymnasium",
+  AHS_BORG: "BORG (Oberstufenrealgymnasium)",
+  AHS_SCHWERPUNKT: "AHS mit Schwerpunkt",
+  BHS_HTL: "HTL",
+  BHS_HAK: "HAK",
+  BHS_HLW: "HLW / HWS",
+  BHS_MODE: "HLA Mode",
+  BHS_KUNST_GESTALTUNG: "HLA Kunst & Gestaltung",
+  BHS_TOURISMUS: "HLA Tourismus",
+  BHS_SOZIALPAED: "Sozial-/Elementarpädagogik",
+  BHS_LAND_FORST: "Land- & Forstwirtschaft",
+};
+
+function labelForm(form: string | null) {
+  if (!form) return "—";
+  return LABEL_FORM[form] || form;
 }
 
 export default function TeacherDashboard() {
@@ -97,9 +137,19 @@ export default function TeacherDashboard() {
     const booking = bookings.find((b) => b.id === info.event.id);
     if (!booking) return;
 
+    const student = booking.student || null;
+
     const noteText = booking.note?.trim()
       ? escapeHtml(booking.note.trim())
       : "—";
+
+    const studentName = escapeHtml(student?.name || "—");
+    const studentEmail = escapeHtml(student?.email || "—");
+    const schoolName = escapeHtml(student?.schoolName || "—");
+    const schoolTrack = escapeHtml(labelTrack(student?.schoolTrack || null));
+    const schoolForm = escapeHtml(labelForm(student?.schoolForm || null));
+    const schoolLevel = escapeHtml(labelLevel(student?.level || null));
+    const grade = student?.grade ? String(student.grade) : "—";
 
     const dialog = document.createElement("div");
     dialog.className =
@@ -109,7 +159,16 @@ export default function TeacherDashboard() {
       <div class="bg-white p-6 rounded-xl max-w-md w-full">
         <h2 class="text-xl font-bold mb-3">Termin verwalten</h2>
 
-        <p><strong>Schüler:</strong> ${escapeHtml(booking.student?.email || "—")}</p>
+        <div style="margin-bottom:10px;">
+          <p><strong>Schüler:</strong> ${studentName}</p>
+          <p><strong>E-Mail:</strong> ${studentEmail}</p>
+          <p><strong>Schule:</strong> ${schoolName}</p>
+          <p><strong>Schultyp:</strong> ${schoolTrack}</p>
+          <p><strong>Schulform:</strong> ${schoolForm}</p>
+          <p><strong>Stufe:</strong> ${schoolLevel}</p>
+          <p><strong>Klasse:</strong> ${escapeHtml(grade)}</p>
+        </div>
+
         <p><strong>Datum:</strong> ${new Date(booking.start).toLocaleDateString()}</p>
         <p><strong>Zeit:</strong> ${new Date(booking.start).toLocaleTimeString()} – ${new Date(
           booking.end

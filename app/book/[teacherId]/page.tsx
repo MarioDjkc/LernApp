@@ -1,3 +1,4 @@
+// app/student/book/[id]/page.tsx  (oder dein Pfad – GANZ)
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -6,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 type Teacher = {
   id: string;
   name: string;
-  subject: string; // bei dir: "Englisch,Mathematik"
+  subject: string; // "Englisch, Mathematik"
 };
 
 type Slot = {
@@ -14,7 +15,7 @@ type Slot = {
   date: string;
   start: string;
   end: string;
-  subject?: string | null; // "ALL" oder Fach
+  offerId: string | null;
 };
 
 function parseSubjects(subjectRaw: string | null | undefined): string[] {
@@ -23,6 +24,10 @@ function parseSubjects(subjectRaw: string | null | undefined): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function isValidEmail(v: string) {
+  return typeof v === "string" && v.includes("@") && v.includes(".");
 }
 
 export default function BookPage() {
@@ -81,12 +86,8 @@ export default function BookPage() {
         const subs = parseSubjects(found.subject);
         setSubjects(subs);
 
-        // Default: erstes Fach auswählen (wenn vorhanden)
-        if (subs.length > 0) {
-          setSelectedSubject(subs[0]);
-        } else {
-          setSelectedSubject("");
-        }
+        if (subs.length > 0) setSelectedSubject(subs[0]);
+        else setSelectedSubject("");
       } catch (e: any) {
         setError(e?.message ?? "Fehler beim Laden des Lehrers.");
       } finally {
@@ -95,12 +96,20 @@ export default function BookPage() {
     })();
   }, [teacherId]);
 
-  // 2) Slots laden (abhängig vom ausgewählten Fach)
+  // 2) Slots laden (abhängig von Fach + studentEmail)
   useEffect(() => {
     if (!teacherId) return;
     if (!selectedSubject) {
       setSlots([]);
       setSelectedSlotId("");
+      return;
+    }
+
+    // ✅ Ohne studentEmail können wir nicht korrekt filtern
+    if (!isValidEmail(studentEmail)) {
+      setSlots([]);
+      setSelectedSlotId("");
+      setError(null);
       return;
     }
 
@@ -111,20 +120,12 @@ export default function BookPage() {
         const res = await fetch(
           `/api/student/availability?teacherId=${encodeURIComponent(
             teacherId
-          )}&subject=${encodeURIComponent(selectedSubject)}`,
+          )}&subject=${encodeURIComponent(selectedSubject)}&studentEmail=${encodeURIComponent(studentEmail)}`,
           { cache: "no-store" }
         );
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.error || "Slots konnten nicht geladen werden.");
-
-        // subjects kommt auch vom Backend – wir nehmen sie als “Quelle der Wahrheit”
-        if (Array.isArray(data.subjects)) {
-          setSubjects(data.subjects);
-          if (!data.subjects.includes(selectedSubject) && data.subjects.length > 0) {
-            setSelectedSubject(data.subjects[0]);
-          }
-        }
 
         setSlots(data.slots || []);
         setSelectedSlotId("");
@@ -134,7 +135,7 @@ export default function BookPage() {
         setSelectedSlotId("");
       }
     })();
-  }, [teacherId, selectedSubject]);
+  }, [teacherId, selectedSubject, studentEmail]);
 
   function buildDateTime(dateStr: string, timeStr: string): string {
     return `${dateStr}T${timeStr}:00`;
@@ -152,9 +153,7 @@ export default function BookPage() {
     setSubmitting(true);
 
     try {
-      // Slot enthält date als DateTime in DB -> wir nehmen nur das Datum (YYYY-MM-DD)
       const dateOnly = new Date(selectedSlot.date).toISOString().slice(0, 10);
-
       const startsAt = buildDateTime(dateOnly, selectedSlot.start);
       const endsAt = buildDateTime(dateOnly, selectedSlot.end);
 
@@ -165,30 +164,19 @@ export default function BookPage() {
           teacherId: teacher.id,
           studentName,
           studentEmail,
-          subject: selectedSubject, // ✅ genau das gewählte Fach
+          subject: selectedSubject,
           start: startsAt,
           end: endsAt,
           note,
-          availabilityId: selectedSlot.id, // falls du das nutzt
+          availabilityId: selectedSlot.id,
         }),
       });
 
-      let json: any = null;
-      try {
-        json = await res.json();
-      } catch {
-        json = null;
-      }
-
-      if (!res.ok) {
-        throw new Error(json?.error || `Fehler bei der Terminbuchung (${res.status})`);
-      }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || `Fehler bei der Terminbuchung (${res.status})`);
 
       setSuccess(true);
-
-      setTimeout(() => {
-        router.push("/student/dashboard");
-      }, 1200);
+      setTimeout(() => router.push("/student/dashboard"), 1200);
     } catch (e: any) {
       setError(e?.message ?? "Unbekannter Fehler bei der Buchung.");
     } finally {
@@ -199,7 +187,7 @@ export default function BookPage() {
   const disabled =
     !teacher ||
     !studentName ||
-    !studentEmail ||
+    !isValidEmail(studentEmail) ||
     !selectedSubject ||
     !selectedSlotId ||
     submitting;
@@ -215,9 +203,7 @@ export default function BookPage() {
 
         {teacher && (
           <>
-            <h1 className="text-4xl font-extrabold mb-2">
-              Termin mit {teacher.name}
-            </h1>
+            <h1 className="text-4xl font-extrabold mb-2">Termin mit {teacher.name}</h1>
 
             <p className="text-gray-600 mb-6">
               <span className="font-semibold">Fächer:</span>{" "}
@@ -245,9 +231,11 @@ export default function BookPage() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   required
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Termine werden erst geladen, wenn deine E-Mail eingegeben ist (damit nur passende Angebote angezeigt werden).
+                </p>
               </div>
 
-              {/* ✅ Fach wählen */}
               <div>
                 <label className="block text-sm font-medium mb-1">Fach wählen</label>
                 <select
@@ -267,11 +255,12 @@ export default function BookPage() {
                 </select>
               </div>
 
-              {/* ✅ Freie Termine */}
               <div>
                 <label className="block text-sm font-medium mb-2">Freie Termine</label>
 
-                {slots.length === 0 ? (
+                {!isValidEmail(studentEmail) ? (
+                  <p className="text-gray-500">Bitte gib zuerst deine E-Mail ein.</p>
+                ) : slots.length === 0 ? (
                   <p className="text-gray-500">Keine freien Termine verfügbar.</p>
                 ) : (
                   <select
@@ -288,9 +277,6 @@ export default function BookPage() {
                       return (
                         <option key={slot.id} value={slot.id}>
                           {d} — {slot.start} bis {slot.end}
-                          {slot.subject && slot.subject !== "ALL"
-                            ? ` (${slot.subject})`
-                            : " (alle Fächer)"}
                         </option>
                       );
                     })}
@@ -309,17 +295,8 @@ export default function BookPage() {
                 />
               </div>
 
-              {error && (
-                <p className="text-sm text-red-500 whitespace-pre-line">
-                  {error}
-                </p>
-              )}
-
-              {success && (
-                <p className="text-sm text-green-600">
-                  Termin erfolgreich angefragt 🎉
-                </p>
-              )}
+              {error && <p className="text-sm text-red-500 whitespace-pre-line">{error}</p>}
+              {success && <p className="text-sm text-green-600">Termin erfolgreich angefragt 🎉</p>}
 
               <div className="flex justify-end gap-3 pt-2">
                 <button
