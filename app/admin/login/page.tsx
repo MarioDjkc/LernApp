@@ -29,7 +29,7 @@ export default function AdminLoginPage() {
       }
 
       // fixed target (no searchParams): keep it simple
-      router.push("/admin/teachers/new");
+      router.push("/admin");
     } catch {
       setError("Netzwerkfehler beim Login.");
       setLoading(false);

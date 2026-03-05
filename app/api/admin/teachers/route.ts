@@ -5,6 +5,27 @@ import prisma from "@/app/lib/prisma";
 
 export const runtime = "nodejs"; // ENV sicher laden
 
+export async function GET() {
+  try {
+    const teachers = await prisma.teacher.findMany({
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        subject: true,
+        mustChangePassword: true,
+        _count: { select: { bookings: true, availabilities: true } },
+      },
+    });
+
+    return NextResponse.json({ teachers });
+  } catch (err: any) {
+    console.error("GET /api/admin/teachers error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const envKey = (process.env.ADMIN_KEY ?? "").trim();
@@ -21,16 +42,13 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { id, name, subject, rating, avatarUrl } = body ?? {};
+    const { id, name, subject } = body ?? {};
 
-    if (!id || !name || !subject || typeof rating !== "number") {
+    if (!id || !name || !subject) {
       return NextResponse.json(
-        { error: "Felder id, name, subject, rating sind Pflicht." },
+        { error: "Felder id, name und subject sind Pflicht." },
         { status: 400 }
       );
-    }
-    if (rating < 1 || rating > 5) {
-      return NextResponse.json({ error: "rating muss 1–5 sein." }, { status: 400 });
     }
 
     // doppelte ID verhindern
@@ -40,8 +58,8 @@ export async function POST(req: Request) {
     }
 
     const created = await prisma.teacher.create({
-      data: { id, name, subject, rating, avatarUrl: avatarUrl ?? null },
-      select: { id: true, name: true, subject: true, rating: true, avatarUrl: true },
+      data: { id, name, subject, password: "", mustChangePassword: true },
+      select: { id: true, name: true, subject: true },
     });
 
     return NextResponse.json({ ok: true, data: created });

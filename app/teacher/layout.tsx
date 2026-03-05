@@ -47,6 +47,13 @@ export default function TeacherLayout({
         >
           Verfügbarkeit
         </Link>
+
+        <Link
+          href="/teacher/payments"
+          className={isActive("/teacher/payments")}
+        >
+          Payments
+        </Link>
       </nav>
 
       {/* Seiteninhalt */}

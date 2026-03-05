@@ -23,6 +23,10 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         <Link href="/student/chat" className={isActive("/student/chat")}>
           Chat
         </Link>
+
+        <Link href="/student/payments" className={isActive("/student/payments")}>
+          Payments
+        </Link>
       </nav>
 
       {/* SEITEN-INHALT */}
