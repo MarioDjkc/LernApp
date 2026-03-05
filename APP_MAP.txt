@@ -1,0 +1,409 @@
+================================================================================
+  LERNAPP – SCENARIO MAP
+  Every user flow, page, and API call in the app
+================================================================================
+
+
+================================================================================
+  ROLES
+================================================================================
+
+  ADMIN      – manages teachers via /admin, authenticated by ADMIN_KEY env var
+  TEACHER    – gives lessons, sets availability, accepts/declines bookings
+  STUDENT    – searches teachers, books lessons, chats after booking confirmed
+
+
+================================================================================
+  1. ADMIN SCENARIOS
+================================================================================
+
+  1a. Admin Login
+  ---------------
+  /admin/login
+    -> enter ADMIN_KEY
+    -> POST /api/admin/login
+       [valid]   -> sets admin_auth cookie (HttpOnly, 24h) -> redirected
+       [invalid] -> error shown
+
+  1b. Admin Logout
+  ----------------
+    -> POST /api/admin/logout -> clears admin_auth cookie
+
+  1c. Create a Teacher Account
+  ----------------------------
+  /admin/teachers (requires admin_auth cookie)
+    -> fill in teacher name, email, subject
+    -> POST /api/admin/teachers
+       -> creates Teacher record in DB (mustChangePassword = true)
+       -> sends email to teacher with set-password link:
+          /teacher/set-password?token=<one-time-token>
+
+
+================================================================================
+  2. TEACHER ONBOARDING
+================================================================================
+
+  2a. Teacher Application (public, no login needed)
+  --------------------------------------------------
+  Landing page / /aplly  (TeacherApplySection component)
+    -> fill in name, email, subject, cover letter, PDF certificate
+    -> POST /api/teachers/apply
+       -> saves TeacherApplication record in DB
+       -> uploads PDF to /public/uploads/<timestamp>-<filename>.pdf
+       -> sends email to admin: "Neue Lehrerbewerbung"
+       -> sends confirmation email to applicant
+
+  2b. Teacher Sets Password (first-time)
+  --------------------------------------
+  /teacher/set-password?token=<token>
+    -> enter new password
+    -> POST /api/teacher/set-password
+       [valid, not expired]  -> hashes password, sets mustChangePassword=false,
+                                deletes token -> teacher can now log in
+       [expired/invalid]     -> error shown, must request new link from admin
+
+  2c. Teacher Login
+  -----------------
+  /auth/teacher/login
+    -> enter email + password
+    -> next-auth "teacher-credentials" provider
+       [valid]   -> JWT session created -> redirect to /teacher/dashboard
+       [invalid] -> error shown
+
+
+================================================================================
+  3. TEACHER SETUP (after first login)
+================================================================================
+
+  3a. Define What to Teach (TeachingOffers)
+  ------------------------------------------
+  /teacher/subjects
+    -> select subject (from Teacher.subject field, e.g. "Mathematik, Englisch")
+    -> select school track (AHS / BHS)
+    -> select school form (Gymnasium, HTL, HAK, ... or ALL)
+    -> select level (Unterstufe / Oberstufe)
+    -> set grade range (e.g. 5-8)
+    -> POST /api/teacher/offers/create
+       -> creates one TeachingOffer per school form
+          (if "Alle" selected, creates one per school form in that track)
+    -> can also delete individual offers:
+       POST /api/teacher/offers/delete
+    -> can delete by subject:
+       POST /api/teacher/offers/delete-by-subjects
+
+    NOTE: Teacher.subject (text field, e.g. "Mathematik, Englisch") is set by
+    admin and drives which subjects appear here. TeachingOffers are the
+    normalized DB records used for matching students.
+
+  3b. Set Availability (Time Slots)
+  ----------------------------------
+  /teacher/availability
+    -> select which TeachingOffer this slot is for (or "for all")
+    -> pick date, start time, end time
+    -> POST /api/teacher/availability
+       -> creates Availability record linked to teacher (and optionally an offer)
+    -> can delete a slot:
+       DELETE /api/teacher/availability/:id
+    -> slots appear in the list and are visible to matching students on /book
+
+
+================================================================================
+  4. STUDENT SCENARIOS
+================================================================================
+
+  4a. Student Login
+  -----------------
+  /auth/login
+    -> enter email + password
+    -> next-auth "student-credentials" provider
+       [valid]   -> JWT session -> redirect to /student/dashboard
+       [invalid] -> error shown
+
+  NOTE: Students can also be created automatically during booking (upsert by
+  email), with a temporary placeholder password.
+
+  4b. Search for a Teacher
+  -------------------------
+  /student/dashboard
+    -> search by text OR click a subject chip
+    -> GET /api/search?subject=...&studentEmail=...
+       -> returns teachers whose TeachingOffers match the student's school profile
+    OR GET /api/teachers  (no filter, returns all)
+    -> teacher cards displayed with name, subject, "Termin vereinbaren" button
+
+  4c. Book a Lesson (full Stripe flow)
+  -------------------------------------
+
+  STEP 1 – Pick a slot
+  /book/:teacherId
+    -> student enters: name, email
+    -> selects subject
+    -> (after valid email entered) loads free slots:
+       GET /api/student/availability?teacherId=...&subject=...&studentEmail=...
+       -> returns Availability slots that match teacher + subject + student profile
+    -> student selects a slot
+    -> adds a note (optional)
+    -> clicks "Termin buchen"
+    -> POST /api/bookings/create
+       -> upsert student User in DB
+       -> creates Booking record (status: "pending")
+       -> creates Stripe Checkout Session (mode=setup, saves card, no charge yet)
+       -> updates Booking status to "checkout_started"
+       -> returns Stripe checkout URL
+
+  STEP 2 – Stripe Checkout
+    -> student is redirected to Stripe hosted page
+    -> student enters card / SEPA details
+       [completed] -> Stripe fires webhook: checkout.session.completed
+                   -> /api/stripe/webhook
+                   -> retrieves SetupIntent to get payment method ID
+                   -> updates Booking:
+                        stripeCustomerId, stripeSetupIntentId,
+                        stripePaymentMethodId, status = "payment_method_saved"
+                   -> student lands on /success
+       [cancelled] -> student lands on /cancel
+                   -> Booking stays at "checkout_started" (caught by cron later)
+
+  /success  -> "Card saved. Waiting for teacher confirmation."
+  /cancel   -> "Checkout cancelled."
+
+
+================================================================================
+  5. TEACHER BOOKING ACTIONS
+================================================================================
+
+  Teacher dashboard: /teacher/dashboard
+    -> loads all bookings via GET /api/bookings/teacher?email=...
+    -> shows FullCalendar with color-coded events:
+
+       BLUE  (payment_method_saved) -> card saved, waiting for teacher action
+       GREEN (paid)                 -> teacher accepted, card charged
+       RED   (declined /
+              payment_failed)       -> rejected or payment failed
+       GRAY  (pending /
+              checkout_started /
+              canceled_by_system)   -> student hasn't finished checkout
+                                       or booking was auto-cancelled
+
+    -> click any event to open detail dialog
+
+  5a. Teacher ACCEPTS a booking
+  ------------------------------
+  Dialog: click "Annehmen & Zahlung abbuchen"
+    -> POST /api/bookings/confirm { bookingId }
+       -> checks status === "payment_method_saved"
+       -> creates Stripe PaymentIntent (off_session, immediate charge)
+       -> IN TRANSACTION:
+            updates Booking status to "paid"
+            saves stripePaymentIntentId
+            deletes the Availability slot (no longer bookable)
+       -> sends confirmation email to student:
+            "Your lesson is confirmed. EUR XX.XX has been charged."
+       [payment error] -> status set to "payment_failed"
+
+  5b. Teacher DECLINES a booking
+  --------------------------------
+  Dialog: click "Ablehnen"
+    -> POST /api/bookings/decline { bookingId }
+       -> detaches stripePaymentMethodId from Stripe (card data gone)
+       -> updates Booking:
+            status = "declined"
+            stripePaymentMethodId = null
+            stripeCustomerId = null
+            stripeSetupIntentId = null
+       -> sends email to student:
+            "Your booking was declined. Your card data has been deleted."
+
+  5c. 6-day auto-cancellation (cron job)
+  ----------------------------------------
+  /api/cron/acceptDeadline  (must be triggered by external scheduler)
+    -> finds all Bookings older than 6 days with status:
+       "pending" | "checkout_started" | "payment_method_saved"
+    -> FOR EACH:
+         detaches stripePaymentMethodId from Stripe
+         sends email to student:
+           "Your booking expired. Card data deleted. Please book again."
+    -> bulk-updates all to:
+         status = "canceled_by_system"
+         stripePaymentMethodId = null
+         stripeCustomerId = null
+         stripeSetupIntentId = null
+
+
+================================================================================
+  6. CHAT (after booking is accepted / paid)
+================================================================================
+
+  Chat room is auto-created when teacher accepts (in /api/bookings/confirm):
+    -> Chat record created with teacherId + studentEmail + bookingId
+
+  Teacher chat:   /teacher/chat
+    -> GET /api/teacher/chat?email=...  -> lists all teacher's chats
+    -> GET /api/chat/:chatId/messages   -> loads messages (polled every 1.2s)
+    -> POST /api/chat/:chatId/messages  -> sends message as "teacher"
+
+  Student chat:   /student/chat
+    -> GET /api/student/chat?email=...  -> lists all student's chats
+    -> GET /api/chat/:chatId/messages   -> loads messages (polled every 1.2s)
+    -> POST /api/chat/:chatId/messages  -> sends message as "student"
+
+  Messages have a sender field: "teacher" | "student" | "system"
+  System messages are shown as amber info banners (centered).
+
+
+================================================================================
+  7. PAYOUT FLOW (future / partially implemented)
+================================================================================
+
+  /api/cron/payouts  (must be triggered by external scheduler)
+    -> finds Bookings with status="paid" where lesson ended >15 days ago
+    -> for each: transfers 60% of priceCents to teacher's Stripe Connect account
+    -> updates Booking status to "teacher_paid"
+
+  NOTE: Teacher.stripeAccountId is NOT yet in the Prisma schema.
+  Teacher Stripe Connect onboarding endpoints exist in pages/api/teacher/:
+    - create-connect-account  -> creates Stripe Connect account
+    - onboarding-link         -> Stripe onboarding URL
+    - connect-balance         -> Connect account balance
+    - bank-payout             -> initiate bank payout
+    - platform-balance        -> platform-level balance
+    - status                  -> Connect account verification status
+
+
+================================================================================
+  8. BOOKING STATUS LIFECYCLE
+================================================================================
+
+  pending
+    |
+    v
+  checkout_started      (student opened Stripe Checkout)
+    |
+    |--[cancelled/abandoned]---------> caught by cron -> canceled_by_system
+    |
+    v
+  payment_method_saved  (Stripe webhook: card saved successfully)
+    |
+    |--[teacher declines]-----------> declined
+    |     (card detached, student emailed)
+    |
+    |--[6 days pass, no action]-----> canceled_by_system
+    |     (card detached, student emailed, cron job)
+    |
+    |--[teacher accepts]
+    |     |
+    |     |--[payment fails]---------> payment_failed
+    |     |
+    |     v
+    |   paid                          (card charged, student emailed, slot deleted,
+    |                                  chat room created)
+    v
+  teacher_paid                        (60% transferred to teacher, cron job)
+
+
+================================================================================
+  9. PAGE / ROUTE REFERENCE
+================================================================================
+
+  PAGES (App Router – app/)
+  --------------------------
+  /                          Landing page (teacher grid + application form)
+  /aplly                     Alternate apply page
+  /auth/login                Student login
+  /auth/teacher/login        Teacher login
+  /auth/error                NextAuth error page
+  /admin/login               Admin login
+  /admin/teachers            Admin: manage teachers
+  /admin/teachers/new        Admin: new teacher (stub)
+  /book/:teacherId           Student: book a lesson
+  /search                    Search page
+  /student/dashboard         Student: find teachers, search by subject
+  /student/chat              Student: chat with teachers
+  /teacher/dashboard         Teacher: calendar + booking management
+  /teacher/availability      Teacher: manage availability slots
+  /teacher/subjects          Teacher: manage teaching offers
+  /teacher/chat              Teacher: chat with students
+  /teacher/set-password      Teacher: first-time password setup via token link
+  /teacher/chat/:chatId      Teacher: individual chat (alternate route)
+
+  PAGES (Pages Router – pages/)
+  ------------------------------
+  /success                   Post-Stripe-Checkout success page
+  /cancel                    Post-Stripe-Checkout cancel page
+  /products                  (placeholder)
+  /checkout-test             (test page)
+  /teacher/confirm/:id       Teacher: confirm booking via URL (legacy)
+  /teacher/test-dashboard    (test page)
+
+  API ROUTES (App Router – app/api/)
+  ------------------------------------
+  POST /api/admin/login               Admin login (sets cookie)
+  POST /api/admin/logout              Admin logout (clears cookie)
+  POST /api/admin/teachers            Create teacher (admin only)
+  POST /api/teachers/apply            Teacher job application + PDF upload
+  GET  /api/teachers                  List all teachers
+  GET  /api/teachers/:id              Get single teacher
+  GET  /api/teachers/list             List teachers (alternate)
+  POST /api/teacher/set-password      Set teacher password via reset token
+  GET  /api/teacher/me                Get logged-in teacher info
+  GET/POST /api/teacher/offers        Get/manage teaching offers
+  POST /api/teacher/offers/create     Create teaching offer(s)
+  POST /api/teacher/offers/delete     Delete single offer
+  POST /api/teacher/offers/delete-by-subjects  Delete by subject
+  POST /api/teacher/offers/ensure-all-form     Ensure ALL school form offer exists
+  GET/POST /api/teacher/availability  Get/create availability slots
+  DELETE /api/teacher/availability/:id  Delete availability slot
+  GET  /api/teacher/profile           Get teacher profile
+  GET/POST /api/teacher/chat          Teacher chat list / create chat
+  POST /api/teacher/chat/:chatId/message  Send message as teacher
+  GET  /api/student/availability      Get available slots for student
+  GET  /api/student/chat              Student chat list
+  POST /api/bookings                  (legacy – no Stripe, simple booking)
+  GET  /api/bookings/teacher          Get bookings for a teacher
+  GET  /api/bookings/student          Get bookings for a student
+  GET  /api/chat/:chatId/messages     Load messages
+  POST /api/chat/:chatId/messages     Send message
+  GET  /api/subjects                  List all subjects
+  GET  /api/search                    Search teachers by subject + student profile
+  GET  /api/register                  Student registration
+
+  API ROUTES (Pages Router – pages/api/)
+  ----------------------------------------
+  POST /api/bookings/create           Create booking + start Stripe Checkout
+  POST /api/bookings/confirm          Teacher accepts -> charge card -> email
+  POST /api/bookings/decline          Teacher declines -> delete card -> email
+  POST /api/stripe/webhook/webhook    Stripe webhook handler
+  GET  /api/stripe/webhook/prices     Stripe prices
+  GET  /api/cron/acceptDeadline       Auto-cancel expired bookings (cron)
+  GET  /api/cron/payouts              Pay out teachers (cron)
+  POST /api/teacher/create-test       Create test teacher
+  POST /api/teacher/create-connect-account  Stripe Connect setup
+  GET  /api/teacher/onboarding-link   Stripe Connect onboarding URL
+  GET  /api/teacher/connect-balance   Connect account balance
+  POST /api/teacher/bank-payout       Initiate bank payout
+  GET  /api/teacher/platform-balance  Platform balance
+  GET  /api/teacher/status            Connect account status
+  ALL  /api/auth/[...nextauth]        NextAuth (student + teacher login)
+
+
+================================================================================
+  10. ENVIRONMENT VARIABLES REQUIRED
+================================================================================
+
+  ADMIN_KEY                  Password for admin area
+  NEXTAUTH_SECRET            NextAuth JWT secret
+  NEXTAUTH_URL               Base URL for NextAuth (e.g. http://localhost:3000)
+  NEXT_PUBLIC_BASE_URL       Public base URL (used in email links)
+  NEXT_PUBLIC_DOMAIN         Public domain (used for Stripe redirect URLs)
+  STRIPE_SECRET_KEY          Stripe secret key
+  STRIPE_WEBHOOK_SECRET      Stripe webhook signing secret
+  SMTP_HOST                  Mail server host
+  SMTP_PORT                  Mail server port
+  SMTP_USER                  Mail server username / admin email address
+  SMTP_PASS                  Mail server password
+  FROM_EMAIL                 Sender address for outgoing emails
+
+  Local Stripe webhook forwarding (dev only):
+    stripe listen --forward-to http://localhost:3000/api/stripe/webhook
+
+================================================================================
