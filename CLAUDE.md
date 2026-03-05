@@ -1,94 +1,85 @@
-# LernApp – Projektübersicht für Claude
+# CLAUDE.md
 
-## Tech-Stack
-- **Framework:** Next.js (App Router + Pages Router gemischt)
-- **Datenbank:** SQLite via Prisma ORM (`prisma/dev.db`)
-- **Auth:** NextAuth mit JWT (Credentials Provider) – getrennt für Lehrer und Schüler
-- **E-Mail:** Nodemailer (Gmail SMTP)
-- **Zahlungen:** Stripe (teilweise implementiert, kein STRIPE_SECRET_KEY gesetzt)
-- **UI:** Tailwind CSS
-- **Kalender:** FullCalendar (Lehrer-Dashboard)
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Projektstruktur
+## Commands
 
-```
-app/
-  admin/           → Admin-Panel (Login, Dashboard, Lehrer, Schüler, Buchungen, Bewerbungen)
-  api/
-    admin/         → stats, teachers (GET+POST), teachers/[id] (DELETE), students, bookings, applications
-    bookings/      → route.ts (POST), student/, teacher/, update-status/, student (POST via availabilityId)
-    student/       → bookings (GET), checkout (POST), availability (GET), chat (GET)
-    teacher/       → me, profile, offers, availability, payments, chat, set-password
-    teachers/      → route.ts (GET+POST), apply, list, [id]
-    admin/         → login, logout
-    auth/          → [...nextauth] in pages/api/auth/
-  student/         → layout.tsx (nav: Dashboard, Chat, Payments), dashboard/, chat/, payments/
-  teacher/         → layout.tsx (nav: Dashboard, Meine Fächer, Chat, Verfügbarkeit, Payments)
-                     dashboard/, subjects/, chat/, availability/, payments/, set-password/
-  auth/            → login (Schüler), teacher/login, error/
-  book/[teacherId] → Buchungsseite für Schüler
-  admin/           → login, page (Dashboard), teachers/, students/, bookings/, applications/
-  components/      → ChatWidget, ContactForm, SessionProviderWrapper, TeacherApplySection, TeacherGrid
-src/components/    → TeacherCard, TeacherCarousel, TeacherCarouselWrapper
-pages/api/
-  auth/[...nextauth].ts  → NextAuth Konfiguration (authOptions exportiert)
-  teacher/               → onboarding-link, create-test
-  bookings/confirm.ts    → Stripe Charge Endpoint (für später)
-prisma/
-  schema.prisma    → Datenbankschema
-  dev.db           → SQLite Datenbank
+```bash
+# Development
+npm run dev          # Start Next.js dev server on localhost:3000
+
+# Database
+npm run db:push      # Push Prisma schema changes to SQLite DB (no migration)
+npm run db:seed      # Seed the database (runs prisma/seed.cjs)
+npm run db:studio    # Open Prisma Studio GUI
+
+# Build & Lint
+npm run build        # Production build
+npx eslint .         # Lint (no dedicated npm script)
 ```
 
-## Datenbankmodelle (Prisma)
-- **User** – Schüler (email, password, name, role, schoolTrack, schoolForm, schoolName, level, grade, stripeCustomerId)
-- **Teacher** – Lehrer (name, email, subject, password, mustChangePassword, unterstufeOnly)
-- **TeachingOffer** – Angebot pro Lehrer/Fach/Schulstufe (schoolTrack, schoolForm, level, minGrade, maxGrade)
-- **Availability** – Verfügbare Zeitslots (teacherId, date, start, end, offerId)
-- **Booking** – Buchungen (studentId, teacherId, start, end, priceCents, currency, status, note, availabilityId, Stripe-Felder)
-- **TeacherApplication** – Bewerbungen (name, email, subject, letter, filePath)
-- **Chat / ChatMessage** – Chat-System
-- **PasswordResetToken** – Token für Lehrer Passwort-Reset
+There is no test suite configured.
 
-## Booking-Flow
-1. Schüler geht auf `/book/[teacherId]`
-2. Gibt Name, Email, Fach ein → lädt Slots via `GET /api/student/availability?teacherId=&subject=&studentEmail=`
-3. Wählt Slot → `POST /api/bookings` mit `{teacherId, studentName, studentEmail, start, end, availabilityId}`
-4. Lehrer sieht Buchung im Kalender (`/teacher/dashboard`) → klickt → Annehmen/Ablehnen
-5. `POST /api/bookings/update-status` mit `{bookingId, status: "accepted"|"declined"}`
-6. Bei accepted: Slot wird gelöscht + Chat wird automatisch erstellt
-7. Schüler sieht Buchung in `/student/payments`
+## Environment Variables
 
-## Auth
-- NextAuth in `pages/api/auth/[...nextauth].ts`
-- `authOptions` wird aus dieser Datei importiert: `import { authOptions } from "@/pages/api/auth/[...nextauth]"`
-- Zwei Provider: `teacher-credentials` und `student-credentials`
-- Session enthält: `user.id`, `user.email`, `user.name`, `user.role` ("teacher" oder "student")
+Copy and configure a `.env` file with:
+- `ADMIN_KEY` — password for the admin area
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` — nodemailer email config
+- `FROM_EMAIL` — sender address for outgoing emails
+- `NEXT_PUBLIC_BASE_URL` — public base URL (default: `http://localhost:3000`)
+- `NEXTAUTH_SECRET`, `NEXTAUTH_URL` — for next-auth (if used)
 
-## Admin Panel
-- Login via `POST /api/admin/login` → setzt Cookie `admin_auth=1`
-- URL: `/admin/login` → `/admin` (Dashboard)
-- Admin-Key in `.env`: `ADMIN_KEY=mario2812`
-- HINWEIS: Cookie-Auth-Checks in den Admin-APIs wurden entfernt weil sie nicht funktionierten
-  → Admin-Panel ist aktuell ohne Auth zugänglich (muss vor Produktion gefixt werden)
+## Architecture
 
-## Payments (Stripe)
-- `lib/stripe.ts` – Stripe Client (braucht `STRIPE_SECRET_KEY` in .env)
-- `app/api/student/checkout/route.ts` – Erstellt Stripe Checkout Session (SetupIntent)
-- `pages/api/bookings/confirm.ts` – Belastet gespeicherte Karte (für später)
-- Noch nicht produktionsbereit: kein Webhook, kein STRIPE_SECRET_KEY
+This is a **Next.js 16 App Router** application (TypeScript + Tailwind CSS) for a tutoring marketplace ("Lernapp") targeting Austrian school students.
 
-## Zwei Prisma-Instanzen (bekanntes Problem)
-- `app/lib/prisma.ts` – Default Export (wird von App Router APIs verwendet)
-- `lib/prisma.ts` – Named Export `{ prisma }` (wird von pages/api verwendet)
+### Database
 
-## Was noch fehlt vor Produktion
-1. Admin-Panel Auth reparieren (Cookie-Check funktioniert nicht)
-2. Stripe vollständig implementieren (Key, Webhook, echte Abbuchung)
-3. SQLite → PostgreSQL für Produktion
-4. `middleware.off.ts` – Middleware ist deaktiviert (umbenennen zu `middleware.ts` wenn bereit)
+**Prisma + SQLite** (`prisma/dev.db`). The singleton client is at `app/lib/prisma.ts`.
 
-## Bekannte Eigenheiten
-- `app/aplly/` – Tippfehler im Ordnernamen (Testseite, irrelevant)
-- `app/apply-test/` – Testseite
-- Zwei postcss configs (`postcss.config.js` + `postcss.config.mjs`)
-- `node` und `npm` Dateien im Root (ungewöhnlich, nicht löschen ohne zu prüfen)
+Key models and their relationships:
+- `Teacher` — tutors with subjects, password reset flow, `mustChangePassword` flag
+- `User` — students with Austrian school attributes (`SchoolTrack`, `SchoolForm`, `SchoolLevel`, grade)
+- `TeachingOffer` — a teacher's offer for a specific subject/school form/grade range
+- `Availability` — teacher time slots, optionally linked to a `TeachingOffer`
+- `Booking` — links student + teacher + availability; includes Stripe payment fields
+- `Chat` / `ChatMessage` — messaging between student and teacher, optionally tied to a booking
+- `TeacherApplication` — stores incoming teacher job applications with optional PDF upload
+- `PasswordResetToken` — one-time tokens for the teacher set-password flow
+
+### Route Structure
+
+**Public pages:**
+- `/` — landing page with teacher grid and teacher application form
+- `/apply-test` — test page for the application form
+- `/auth/error` — NextAuth error page
+
+**Teacher area:**
+- `/teacher` — teacher dashboard (reads from `localStorage`)
+- `/teacher/set-password` — password setup via token link (sent by admin email)
+
+**Admin area** (protected by `admin_auth` cookie or `x-admin-key` header):
+- `/admin/login` — sets the `admin_auth` cookie (24h)
+- `/admin/teachers` — admin teacher management UI
+
+**API routes (`app/api/`):**
+- `POST /api/admin/login` — validates `ADMIN_KEY`, sets cookie
+- `POST /api/admin/logout` — clears cookie
+- `POST /api/admin/teachers` — creates a teacher (requires admin auth)
+- `POST /api/teachers/apply` — handles teacher application form + PDF upload + sends two emails
+- `POST /api/teacher/set-password` — validates reset token, hashes and saves new password
+- `GET /api/_email-test` — internal email smoke-test route
+
+### Auth Model
+
+- **Admin**: Simple `ADMIN_KEY` env var checked in API routes. Auth state is an `admin_auth` HttpOnly cookie.
+- **Teachers**: Custom login stored in `localStorage` (no session cookie). Password reset via one-time token emailed by admin.
+- **Students/next-auth**: `next-auth` is installed but not fully wired in yet.
+
+### Key Conventions
+
+- All API routes that need Node.js APIs (env, file system) must declare `export const runtime = "nodejs"`.
+- PDF uploads from teacher applications are saved to `public/uploads/` with a timestamp-prefixed filename.
+- The `Teacher` model has a legacy `subject: String` field (free text) alongside the normalized `TeachingOffer` relation — both coexist during transition.
+- There are two component directories: `app/components/` (App Router components) and `src/components/` (legacy location). Prefer `app/components/` for new work.
+- Shared types are centralized in `app/lib/types.ts` — import the `Teacher` type from there.

@@ -157,17 +157,15 @@ export default function BookPage() {
       const startsAt = buildDateTime(dateOnly, selectedSlot.start);
       const endsAt = buildDateTime(dateOnly, selectedSlot.end);
 
-      const res = await fetch("/api/bookings", {
+      const res = await fetch("/api/bookings/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           teacherId: teacher.id,
           studentName,
           studentEmail,
-          subject: selectedSubject,
           start: startsAt,
           end: endsAt,
-          note,
           availabilityId: selectedSlot.id,
         }),
       });
@@ -175,8 +173,8 @@ export default function BookPage() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || `Fehler bei der Terminbuchung (${res.status})`);
 
-      setSuccess(true);
-      setTimeout(() => router.push("/student/dashboard"), 1200);
+      // Weiterleitung zur Stripe Checkout Seite
+      window.location.href = json.url;
     } catch (e: any) {
       setError(e?.message ?? "Unbekannter Fehler bei der Buchung.");
     } finally {

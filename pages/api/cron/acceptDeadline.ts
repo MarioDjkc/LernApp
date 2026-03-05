@@ -1,44 +1,78 @@
-// pages/api/cron/teacherDeadline.ts
-
+// pages/api/cron/acceptDeadline.ts
+// Läuft täglich – storniert Buchungen, die nach 6 Tagen nicht bestätigt wurden
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "../../../lib/prisma";
-import { Booking } from "@prisma/client";
+import { stripe } from "../../../lib/stripe";
+import nodemailer from "nodemailer";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const now = new Date();
     const cutoff = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
 
-    // Alle Buchungen, die NICHT bestätigt wurden
-    const outdatedBookings: Booking[] = await prisma.booking.findMany({
+    const expired = await prisma.booking.findMany({
       where: {
         createdAt: { lt: cutoff },
-        status: {
-          in: ["pending", "checkout_started", "payment_method_saved"],
-        },
+        status: { in: ["pending", "checkout_started", "payment_method_saved"] },
+      },
+      include: {
+        student: { select: { email: true, name: true } },
+        teacher: { select: { name: true } },
       },
     });
 
-    // Massenupdate
+    for (const booking of expired) {
+      // Zahlungsmethode bei Stripe löschen
+      if (booking.stripePaymentMethodId) {
+        await stripe.paymentMethods.detach(booking.stripePaymentMethodId).catch(() => null);
+      }
+
+      // E-Mail an Schüler
+      if (booking.student?.email) {
+        await sendMail(
+          booking.student.email,
+          "Dein Termin ist abgelaufen",
+          `<h2>Dein Nachhilfetermin wurde automatisch storniert</h2>
+           <p>Hallo ${booking.student.name || ""},</p>
+           <p>Dein Terminwunsch bei <b>${booking.teacher?.name || "deinem Lehrer"}</b> wurde innerhalb von 6 Tagen nicht bestätigt und wurde deshalb automatisch storniert.</p>
+           <p>Deine Zahlungsdaten wurden vollständig aus unserem System gelöscht.</p>
+           <p>Bitte buche einen neuen Termin.</p>
+           <p>Viele Grüße,<br/>dein LernApp-Team</p>`
+        ).catch((err) => console.error("Mail error for", booking.student?.email, err));
+      }
+    }
+
+    // Alle auf einmal als canceled_by_system markieren + Stripe-Daten löschen
     const updated = await prisma.booking.updateMany({
       where: {
         createdAt: { lt: cutoff },
-        status: {
-          in: ["pending", "checkout_started", "payment_method_saved"],
-        },
+        status: { in: ["pending", "checkout_started", "payment_method_saved"] },
       },
       data: {
         status: "canceled_by_system",
+        stripePaymentMethodId: null,
+        stripeCustomerId: null,
+        stripeSetupIntentId: null,
       },
     });
 
     res.json({
       success: true,
       message: `${updated.count} bookings canceled.`,
-      canceledBookings: outdatedBookings.map(b => b.id),
+      canceledBookings: expired.map((b) => b.id),
     });
   } catch (err: any) {
     console.error("Cronjob error:", err);
     return res.status(500).json({ error: err.message });
   }
+}
+
+async function sendMail(to: string, subject: string, html: string) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT),
+    secure: true,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  });
+  await transporter.sendMail({ from: process.env.FROM_EMAIL, to, subject, html });
 }
