@@ -1,6 +1,7 @@
 // app/api/teacher/offers/create/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { logError } from "@/app/lib/logError";
 
 export const runtime = "nodejs";
 
@@ -238,6 +239,7 @@ export async function POST(req: Request) {
       data: latest,
     });
   } catch (err: any) {
+    logError("app/api/teacher/offers/create POST", err).catch(() => {});
     console.error("POST /api/teacher/offers/create error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }

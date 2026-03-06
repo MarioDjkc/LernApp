@@ -1,6 +1,7 @@
 // app/api/bookings/student/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { logError } from "@/app/lib/logError";
 
 function combineDateAndTime(dateObj: Date, time: string) {
   const yyyyMmDd = dateObj.toISOString().split("T")[0];
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, booking });
   } catch (e) {
+    logError("app/api/bookings/student POST", e).catch(() => {});
     console.error("POST /api/bookings/student error:", e);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }

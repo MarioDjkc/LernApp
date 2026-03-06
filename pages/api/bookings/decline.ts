@@ -3,6 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "../../../lib/prisma";
 import { stripe } from "../../../lib/stripe";
 import nodemailer from "nodemailer";
+import { logError } from "@/app/lib/logError";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).end();
@@ -53,6 +54,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.json({ ok: true });
   } catch (err: any) {
+    logError("pages/api/bookings/decline POST", err).catch(() => {});
     console.error("POST /api/bookings/decline error:", err);
     return res.status(500).json({ error: err.message });
   }

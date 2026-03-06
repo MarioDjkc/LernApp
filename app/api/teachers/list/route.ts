@@ -1,6 +1,7 @@
 // app/api/teachers/list/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { logError } from "@/app/lib/logError";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,7 @@ export async function GET() {
 
     return NextResponse.json({ data: teachers });
   } catch (err) {
+    logError("app/api/teachers/list GET", err).catch(() => {});
     console.error("GET /api/teachers/list error:", err);
     return NextResponse.json(
       { data: [], error: "ServerFehler" },

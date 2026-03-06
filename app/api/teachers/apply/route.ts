@@ -4,6 +4,7 @@ import prisma from "@/app/lib/prisma";
 import { promises as fs } from "fs";
 import path from "path";
 import nodemailer from "nodemailer";
+import { logError } from "@/app/lib/logError";
 
 export const runtime = "nodejs";
 
@@ -94,6 +95,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
+    logError("app/api/teachers/apply POST", err).catch(() => {});
     console.error("POST /api/teachers/apply error:", err);
     if (err?.code === "P2002") {
       return NextResponse.json(

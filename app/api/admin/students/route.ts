@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
 import bcrypt from "bcryptjs";
 import { isAdminAuthed } from "@/app/api/admin/_auth";
+import { logError } from "@/app/lib/logError";
 
 export const runtime = "nodejs";
 
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, student });
   } catch (err: any) {
+    logError("app/api/admin/students POST", err).catch(() => {});
     console.error("POST /api/admin/students error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }

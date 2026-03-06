@@ -1,6 +1,7 @@
 // app/api/bookings/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { logError } from "@/app/lib/logError";
 
 export const runtime = "nodejs";
 
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, booking });
   } catch (err: any) {
+    logError("app/api/bookings POST", err).catch(() => {});
     console.error("POST /api/bookings error:", err);
 
     if (err?.code === "P2003") {

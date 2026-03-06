@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import { isAdminAuthed } from "@/app/api/admin/_auth";
+import { logError } from "@/app/lib/logError";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ teachers });
   } catch (err: any) {
+    logError("app/api/admin/teachers GET", err).catch(() => {});
     console.error("GET /api/admin/teachers error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
@@ -98,6 +100,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, created });
   } catch (err) {
+    logError("app/api/admin/teachers POST", err).catch(() => {});
     console.error("POST /api/admin/teachers error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }

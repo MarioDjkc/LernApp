@@ -1,6 +1,7 @@
 // app/api/teacher/chat/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { logError } from "@/app/lib/logError";
 
 export async function GET(req: Request) {
   try {
@@ -32,6 +33,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ chats });
   } catch (err) {
+    logError("app/api/teacher/chat GET", err).catch(() => {});
     console.error("GET /api/teacher/chat error:", err);
     return NextResponse.json(
       { error: "Serverfehler" },

@@ -1,6 +1,7 @@
 // app/api/teacher/availability/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { logError } from "@/app/lib/logError";
 
 export const runtime = "nodejs";
 
@@ -35,6 +36,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: true, data: slots });
   } catch (err) {
+    logError("app/api/teacher/availability GET", err).catch(() => {});
     console.error("GET /api/teacher/availability error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }
@@ -105,6 +107,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, data: created });
   } catch (err) {
+    logError("app/api/teacher/availability POST", err).catch(() => {});
     console.error("POST /api/teacher/availability error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }

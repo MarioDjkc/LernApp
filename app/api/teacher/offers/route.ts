@@ -1,6 +1,7 @@
 // app/api/teacher/offers/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { logError } from "@/app/lib/logError";
 
 export const runtime = "nodejs";
 
@@ -79,6 +80,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: true, data: offers, grouped });
   } catch (err) {
+    logError("app/api/teacher/offers GET", err).catch(() => {});
     console.error("GET /api/teacher/offers error:", err);
     return NextResponse.json({ ok: false, data: [], grouped: [], error: "Serverfehler" }, { status: 500 });
   }

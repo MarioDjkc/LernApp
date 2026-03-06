@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
+import { logError } from "@/app/lib/logError";
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
 
 export async function GET(req: Request) {
@@ -43,6 +44,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ chats: mapped });
   } catch (err) {
+    logError("app/api/student/chat GET", err).catch(() => {});
     console.error("GET /api/student/chat error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }

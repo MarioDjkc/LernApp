@@ -1,6 +1,7 @@
 // app/api/teacher/availability/[id]/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { logError } from "@/app/lib/logError";
 
 export const runtime = "nodejs";
 
@@ -53,6 +54,7 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true });
   } catch (err) {
+    logError("app/api/teacher/availability/[id] DELETE", err).catch(() => {});
     console.error("DELETE /api/teacher/availability/[id] error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }

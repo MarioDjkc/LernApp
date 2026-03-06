@@ -1,6 +1,7 @@
 // app/api/search/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { logError } from "@/app/lib/logError";
 
 // Hilfsfunktion: tolerant normalisieren
 function normalize(str: string) {
@@ -120,6 +121,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ data: result });
   } catch (err: any) {
+    logError("app/api/search GET", err).catch(() => {});
     console.error("GET /api/search error:", err);
     return NextResponse.json({ data: [], error: "ServerFehler" }, { status: 500 });
   }

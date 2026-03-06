@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { logError } from "@/app/lib/logError";
 
 export async function GET(req: Request) {
   try {
@@ -38,6 +39,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ chats });
   } catch (err) {
+    logError("app/api/chat/teacher GET", err).catch(() => {});
     console.error("GET /api/chats/teacher error:", err);
     return NextResponse.json(
       { error: "Serverfehler beim Laden der Chats" },

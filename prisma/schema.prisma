@@ -182,6 +182,16 @@ model Booking {
   @@index([availabilityId])
 }
 
+model ErrorLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  filepath  String
+  errorCode String
+  errorText String
+
+  @@index([createdAt])
+}
+
 model TeacherApplication {
   id          String   @id @default(cuid())
   name        String

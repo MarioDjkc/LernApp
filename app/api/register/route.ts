@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
 import bcrypt from "bcryptjs";
+import { logError } from "@/app/lib/logError";
 
 type SchoolTrack = "AHS" | "BHS" | "OTHER";
 type SchoolLevel = "UNTERSTUFE" | "OBERSTUFE";
@@ -108,6 +109,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, user: created });
   } catch (err) {
+    logError("app/api/register POST", err).catch(() => {});
     console.error("POST /api/register error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }

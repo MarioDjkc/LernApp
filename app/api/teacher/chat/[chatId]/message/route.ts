@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { logError } from "@/app/lib/logError";
 
 export async function GET(req: Request, { params }: any) {
   try {
@@ -19,6 +20,7 @@ export async function GET(req: Request, { params }: any) {
       studentEmail: chat?.studentEmail || "",
     });
   } catch (err) {
+    logError("app/api/teacher/chat/[chatId]/message GET", err).catch(() => {});
     console.error("GET chat messages error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }
@@ -39,6 +41,7 @@ export async function POST(req: Request, { params }: any) {
 
     return NextResponse.json({ message });
   } catch (err) {
+    logError("app/api/teacher/chat/[chatId]/message POST", err).catch(() => {});
     console.error("POST chat message error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }

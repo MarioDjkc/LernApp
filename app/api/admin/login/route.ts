@@ -1,5 +1,6 @@
 // app/api/admin/login/route.ts
 import { NextResponse } from "next/server";
+import { logError } from "@/app/lib/logError";
 
 export const runtime = "nodejs"; // WICHTIG: Zugriff auf process.env sicherstellen
 
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
     });
     return res;
   } catch (err) {
+    logError("app/api/admin/login POST", err).catch(() => {});
     console.error("Login-Fehler:", err);
     return NextResponse.json({ error: "Serverfehler beim Login." }, { status: 500 });
   }

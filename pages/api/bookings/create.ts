@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]";
 import { prisma } from "../../../lib/prisma";
 import { stripe } from "../../../lib/stripe";
+import { logError } from "@/app/lib/logError";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).end();
@@ -67,6 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     res.status(200).json({ url: stripeSession.url, bookingId: booking.id });
   } catch (err: any) {
+    logError("pages/api/bookings/create POST", err).catch(() => {});
     console.error("POST /api/bookings/create error:", err);
     res.status(500).json({ error: err.message });
   }

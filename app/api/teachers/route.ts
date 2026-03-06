@@ -4,6 +4,7 @@ import prisma from "@/app/lib/prisma";
 import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
+import { logError } from "@/app/lib/logError";
 
 export const runtime = "nodejs";
 
@@ -85,6 +86,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ data: mapped });
   } catch (err) {
+    logError("app/api/teachers GET", err).catch(() => {});
     console.error("GET /api/teachers error:", err);
     return NextResponse.json({ data: [], error: "ServerFehler" }, { status: 500 });
   }
@@ -174,6 +176,7 @@ export async function POST(req: Request) {
       tempPassword,
     });
   } catch (err) {
+    logError("app/api/teachers POST", err).catch(() => {});
     console.error("POST /api/teachers error:", err);
     return NextResponse.json({ error: "ServerFehler" }, { status: 500 });
   }

@@ -1,6 +1,7 @@
 // app/api/teacher/offers/ensure-all-form/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { logError } from "@/app/lib/logError";
 
 export const runtime = "nodejs";
 
@@ -68,6 +69,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, data: offer });
   } catch (err) {
+    logError("app/api/teacher/offers/ensure-all-form POST", err).catch(() => {});
     console.error("POST /api/teacher/offers/ensure-all-form error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }

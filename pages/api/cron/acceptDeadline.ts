@@ -4,6 +4,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "../../../lib/prisma";
 import { stripe } from "../../../lib/stripe";
 import nodemailer from "nodemailer";
+import { logError } from "@/app/lib/logError";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -62,6 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       canceledBookings: expired.map((b) => b.id),
     });
   } catch (err: any) {
+    logError("pages/api/cron/acceptDeadline", err).catch(() => {});
     console.error("Cronjob error:", err);
     return res.status(500).json({ error: err.message });
   }
