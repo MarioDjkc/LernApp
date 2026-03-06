@@ -179,7 +179,11 @@ export default function Home() {
             <div className="font-semibold mb-2">Rechtliches</div>
             <ul className="space-y-1 text-gray-600">
               <li>AGB</li>
-              <li>Datenschutz</li>
+              <li>
+                <a href="/datenschutz" className="hover:text-blue-600 hover:underline">
+                  Datenschutzerklärung
+                </a>
+              </li>
               <li>Impressum</li>
             </ul>
           </div>

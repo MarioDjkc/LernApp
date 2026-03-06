@@ -14,6 +14,12 @@ export default function TeacherLoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (localStorage.getItem("cookie_consent") !== "accepted") {
+      setError("Bitte akzeptiere zuerst die Cookie-Richtlinie.");
+      return;
+    }
+
     setLoading(true);
 
     const res = await signIn("teacher-credentials", {

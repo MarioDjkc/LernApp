@@ -12,6 +12,12 @@ export default function StudentLoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (localStorage.getItem("cookie_consent") !== "accepted") {
+      setError("Bitte akzeptiere zuerst die Cookie-Richtlinie.");
+      return;
+    }
+
     setLoading(true);
 
     const result = await signIn("student-credentials", {

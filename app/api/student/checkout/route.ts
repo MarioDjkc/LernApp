@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/pages/api/auth/[...nextauth]";
+import { getStudentSession } from "@/app/lib/auth";
 import prisma from "@/app/lib/prisma";
 import { stripe } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getStudentSession();
 
-  if (!session?.user?.email || (session.user as any).role !== "student") {
+  if (!session) {
     return NextResponse.json({ error: "Nicht eingeloggt." }, { status: 401 });
   }
 
@@ -19,7 +18,7 @@ export async function POST(req: Request) {
   }
 
   const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
+    where: { email: session.email },
   });
   if (!user) {
     return NextResponse.json({ error: "Benutzer nicht gefunden." }, { status: 404 });

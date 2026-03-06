@@ -80,6 +80,12 @@ export default function AuthModal({ onClose }: Props) {
     setLoading(true);
     setMsg(null);
 
+    if (localStorage.getItem("cookie_consent") !== "accepted") {
+      setMsg("Bitte akzeptiere zuerst die Cookie-Richtlinie.");
+      setLoading(false);
+      return;
+    }
+
     try {
       if (mode === "register") {
         const res = await fetch("/api/register", {

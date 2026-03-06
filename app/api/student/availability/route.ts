@@ -1,6 +1,7 @@
 // app/api/student/availability/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { getStudentSession } from "@/app/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -15,20 +16,22 @@ function inferLevelFromGrade(grade: number | null | undefined) {
 
 export async function GET(req: Request) {
   try {
+    const session = await getStudentSession();
+    if (!session) {
+      return NextResponse.json({ error: "Nicht eingeloggt." }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
 
     const teacherId = norm(searchParams.get("teacherId") || "");
     const subjectName = norm(searchParams.get("subject") || "");
-    const studentEmail = norm((searchParams.get("studentEmail") || "").toLowerCase());
+    const studentEmail = session.email.toLowerCase();
 
     if (!teacherId) {
       return NextResponse.json({ error: "teacherId fehlt" }, { status: 400 });
     }
     if (!subjectName) {
       return NextResponse.json({ error: "subject fehlt" }, { status: 400 });
-    }
-    if (!studentEmail) {
-      return NextResponse.json({ error: "studentEmail fehlt" }, { status: 400 });
     }
 
     // Teacher + unterstufeOnly holen
