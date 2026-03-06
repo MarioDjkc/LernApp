@@ -50,9 +50,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     });
 
-    // 3) Bestätigungs-E-Mail an Schüler
+    // 3) Bestätigungs-E-Mail an Schüler (Fehler hier darf nicht die Response zerstören)
     if (booking.student?.email) {
-      await sendMail(
+      sendMail(
         booking.student.email,
         "Dein Termin wurde bestätigt!",
         `<h2>Dein Nachhilfetermin wurde bestätigt!</h2>
@@ -61,15 +61,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          <p><b>Termin:</b> ${new Date(booking.start).toLocaleString("de-AT")} &ndash; ${new Date(booking.end).toLocaleTimeString("de-AT")}</p>
          <p>Der Betrag von <b>&euro;${(booking.priceCents / 100).toFixed(2)}</b> wurde von deiner Karte abgebucht.</p>
          <p>Viele Grüße,<br/>dein LernApp-Team</p>`
-      );
+      ).catch((mailErr) => console.error("Bestätigungsmail fehlgeschlagen:", mailErr));
     }
 
     return res.json({ ok: true });
   } catch (err: any) {
     console.error("POST /api/bookings/confirm error:", err);
-    await prisma.booking
-      .update({ where: { id: bookingId }, data: { status: "payment_failed" } })
-      .catch(() => null);
+    // Nur auf payment_failed setzen wenn die Karte NICHT belastet wurde
+    if (!err?.stripePaymentIntentId) {
+      await prisma.booking
+        .update({ where: { id: bookingId }, data: { status: "payment_failed" } })
+        .catch(() => null);
+    }
     return res.status(400).json({ error: err.message });
   }
 }
