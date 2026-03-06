@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function TeacherLayout({
   children,
@@ -14,6 +14,7 @@ export default function TeacherLayout({
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -23,6 +24,22 @@ export default function TeacherLayout({
       router.replace("/");
     }
   }, [status, session]);
+
+  // Fetch pending booking count whenever the route changes
+  useEffect(() => {
+    if (status !== "authenticated" || !session?.user?.email) return;
+    fetch(`/api/bookings/teacher?email=${encodeURIComponent(session.user.email)}`, {
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const count = (data.bookings ?? []).filter(
+          (b: { status: string }) => b.status === "payment_method_saved"
+        ).length;
+        setPendingCount(count);
+      })
+      .catch(() => {});
+  }, [pathname, status, session]);
 
   const isActive = (path: string) =>
     pathname.startsWith(path)
@@ -49,6 +66,15 @@ export default function TeacherLayout({
         </Link>
         <Link href="/teacher/payments" className={isActive("/teacher/payments")}>
           Payments
+        </Link>
+
+        <Link href="/teacher/bookings" className={`relative ${isActive("/teacher/bookings")}`}>
+          Buchungen
+          {pendingCount > 0 && (
+            <span className="absolute -bottom-1 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+              {pendingCount}
+            </span>
+          )}
         </Link>
 
         <div className="ml-auto flex items-center gap-3 text-sm text-gray-500">
