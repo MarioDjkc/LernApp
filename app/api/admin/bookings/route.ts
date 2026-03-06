@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import prisma from "@/app/lib/prisma";
+import { isAdminAuthed } from "@/app/api/admin/_auth";
 
 export const runtime = "nodejs";
 
-function unauthorized() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
+export async function GET(req: Request) {
+  if (!isAdminAuthed(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-export async function GET() {
   const bookings = await prisma.booking.findMany({
     orderBy: { createdAt: "desc" },
     select: {

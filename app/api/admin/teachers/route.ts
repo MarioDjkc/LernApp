@@ -1,11 +1,17 @@
-// app/api/admin/teachers/route.ts
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import prisma from "@/app/lib/prisma";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import nodemailer from "nodemailer";
+import { isAdminAuthed } from "@/app/api/admin/_auth";
 
-export const runtime = "nodejs"; // ENV sicher laden
+export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(req: Request) {
+  if (!isAdminAuthed(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const teachers = await prisma.teacher.findMany({
       orderBy: { name: "asc" },
@@ -27,42 +33,70 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (!isAdminAuthed(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
-    const envKey = (process.env.ADMIN_KEY ?? "").trim();
-    if (!envKey) {
-      return NextResponse.json({ error: "Server: ADMIN_KEY fehlt." }, { status: 500 });
-    }
+    const { name, email, subject, unterstufeOnly, schoolTrack, allowedForms } = await req.json();
 
-    // ✅ Admin-Auth: akzeptiere Cookie ODER Header
-    const cookieAuth = cookies().get("admin_auth")?.value === "1";
-    const headerKey = req.headers.get("x-admin-key")?.trim();
-    const headerAuth = headerKey && headerKey === envKey;
-    if (!cookieAuth && !headerAuth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = await req.json();
-    const { id, name, subject } = body ?? {};
-
-    if (!id || !name || !subject) {
+    if (!name || !email || !subject) {
       return NextResponse.json(
-        { error: "Felder id, name und subject sind Pflicht." },
+        { error: "Felder name, email und subject sind Pflicht." },
         { status: 400 }
       );
     }
 
-    // doppelte ID verhindern
-    const exists = await prisma.teacher.findUnique({ where: { id } });
+    const exists = await prisma.teacher.findUnique({ where: { email } });
     if (exists) {
-      return NextResponse.json({ error: "Lehrer-ID existiert bereits." }, { status: 409 });
+      return NextResponse.json({ error: "E-Mail bereits vergeben." }, { status: 409 });
     }
 
+    const tempPassword = Math.random().toString(36).slice(-10);
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
     const created = await prisma.teacher.create({
-      data: { id, name, subject, password: "", mustChangePassword: true },
-      select: { id: true, name: true, subject: true },
+      data: {
+        name,
+        email,
+        subject,
+        password: hashedPassword,
+        mustChangePassword: true,
+        unterstufeOnly: !!unterstufeOnly,
+        schoolTrack: schoolTrack || "BOTH",
+        allowedForms: allowedForms ? JSON.stringify(allowedForms) : null,
+      },
+      select: { id: true, name: true, email: true, subject: true },
     });
 
-    return NextResponse.json({ ok: true, data: created });
+    const token = crypto.randomBytes(32).toString("hex");
+    await prisma.passwordResetToken.create({
+      data: {
+        token,
+        teacherId: created.id,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    });
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: true,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+
+    const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/teacher/set-password?token=${token}`;
+    await transporter.sendMail({
+      from: process.env.FROM_EMAIL,
+      to: created.email,
+      subject: "Willkommen bei LernApp – Passwort festlegen",
+      html: `<h2>Willkommen, ${created.name}!</h2>
+        <p>Klicke auf den Link um dein Passwort festzulegen:</p>
+        <p><a href="${resetUrl}">${resetUrl}</a></p>
+        <p>Dieser Link ist 24 Stunden gültig.</p>`,
+    });
+
+    return NextResponse.json({ ok: true, created });
   } catch (err) {
     console.error("POST /api/admin/teachers error:", err);
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });

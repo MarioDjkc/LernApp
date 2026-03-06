@@ -18,10 +18,11 @@ export async function GET(req: Request) {
       select: {
         id: true,
         email: true,
-        subject: true, // <-- das brauchen wir
         name: true,
-        // falls du später unterstufeOnly hinzufügst, kannst du es hier ergänzen
-        // unterstufeOnly: true,
+        subject: true,
+        unterstufeOnly: true,
+        schoolTrack: true,
+        allowedForms: true,
       },
     });
 

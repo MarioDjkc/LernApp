@@ -24,28 +24,25 @@ const SCHOOL_FORMS: Record<SchoolTrack, { value: string; label: string }[]> = {
     { value: "BHS_MODE", label: "HLA Mode" },
     { value: "BHS_KUNST_GESTALTUNG", label: "HLA Kunst & Gestaltung" },
     { value: "BHS_TOURISMUS", label: "HLA Tourismus" },
-    { value: "BHS_SOZIALPAED", label: "Sozial-/Elementarpädagogik" },
+    { value: "BHS_SOZIALPAED", label: "Sozial-/Elementarpaedagogik" },
     { value: "BHS_LAND_FORST", label: "Land- & Forstwirtschaft" },
   ],
 };
 
 function gradeOptions(level: SchoolLevel, track: SchoolTrack) {
-  // du wolltest es “komplexer” – aber hier erstmal pragmatisch:
-  // Unterstufe: 1..4
-  // Oberstufe: AHS 1..4, BHS 1..5
+  if (track === "BHS") return [5, 6, 7, 8, 9];
   if (level === "UNTERSTUFE") return [1, 2, 3, 4];
-  return track === "AHS" ? [1, 2, 3, 4] : [1, 2, 3, 4, 5];
+  return [5, 6, 7, 8];
 }
 
 export default function AuthModal({ onClose }: Props) {
   const router = useRouter();
 
-  const [mode, setMode] = useState<"login" | "register">("register"); // ✅ start in register
+  const [mode, setMode] = useState<"login" | "register">("register");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // ✅ NEU
   const [schoolTrack, setSchoolTrack] = useState<SchoolTrack>("AHS");
   const formOptions = useMemo(() => SCHOOL_FORMS[schoolTrack], [schoolTrack]);
   const [schoolForm, setSchoolForm] = useState<string>(SCHOOL_FORMS.AHS[0].value);
@@ -62,16 +59,16 @@ export default function AuthModal({ onClose }: Props) {
     setMsg(null);
   };
 
-  // Track Wechsel -> Form reset + grade reset
   function onTrackChange(v: SchoolTrack) {
     setSchoolTrack(v);
     const first = SCHOOL_FORMS[v][0]?.value || "";
     setSchoolForm(first);
-    const grades = gradeOptions(level, v);
+    const newLevel: SchoolLevel = v === "BHS" ? "OBERSTUFE" : level;
+    if (v === "BHS") setLevel("OBERSTUFE");
+    const grades = gradeOptions(newLevel, v);
     setGrade(grades[0]);
   }
 
-  // Level Wechsel -> grade reset
   function onLevelChange(v: SchoolLevel) {
     setLevel(v);
     const grades = gradeOptions(v, schoolTrack);
@@ -92,8 +89,6 @@ export default function AuthModal({ onClose }: Props) {
             name,
             email,
             password,
-
-            // ✅ NEU: richtige Felder
             schoolTrack,
             schoolForm,
             schoolName,
@@ -105,7 +100,6 @@ export default function AuthModal({ onClose }: Props) {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Registrierung fehlgeschlagen");
 
-        // direkt einloggen (Student Provider!)
         const result = await signIn("student-credentials", {
           redirect: false,
           email,
@@ -151,12 +145,11 @@ export default function AuthModal({ onClose }: Props) {
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl"
-          aria-label="Modal schließen"
+          aria-label="Modal schliessen"
         >
-          ✕
+          X
         </button>
 
-        {/* Tabs */}
         <div className="flex mb-6 border-b">
           <button
             className={`flex-1 py-2 font-semibold ${
@@ -241,9 +234,16 @@ export default function AuthModal({ onClose }: Props) {
                     value={level}
                     onChange={(e) => onLevelChange(e.target.value as SchoolLevel)}
                     className="w-full border rounded-lg px-3 py-2"
+                    disabled={schoolTrack === "BHS"}
                   >
-                    <option value="UNTERSTUFE">Unterstufe</option>
-                    <option value="OBERSTUFE">Oberstufe</option>
+                    {schoolTrack !== "BHS" && (
+                      <option value="UNTERSTUFE">Unterstufe (1.-4. Klasse)</option>
+                    )}
+                    <option value="OBERSTUFE">
+                      {schoolTrack === "BHS"
+                        ? "Oberstufe (5.-9. Jahrgang)"
+                        : "Oberstufe (5.-8. Klasse)"}
+                    </option>
                   </select>
                 </div>
 
@@ -285,14 +285,14 @@ export default function AuthModal({ onClose }: Props) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-              placeholder="••••••••"
+              placeholder="********"
             />
           </div>
 
           {msg && (
             <p
               className={`text-sm ${
-                /fehler|falsch|existiert|ungültig|failed/i.test(msg)
+                /fehler|falsch|existiert|ungueltig|failed/i.test(msg)
                   ? "text-red-600"
                   : "text-green-700"
               }`}
@@ -307,7 +307,7 @@ export default function AuthModal({ onClose }: Props) {
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold disabled:opacity-60"
           >
             {loading
-              ? "Bitte warten…"
+              ? "Bitte warten..."
               : mode === "login"
               ? "Einloggen"
               : "Konto erstellen & einloggen"}

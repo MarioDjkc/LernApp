@@ -12,11 +12,14 @@ type Teacher = {
   _count: { bookings: number; availabilities: number };
 };
 
+
 export default function AdminTeachersPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -38,6 +41,19 @@ export default function AdminTeachersPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  async function handleResendLink(id: string) {
+    setResendingId(id);
+    setResendMsg(null);
+    const res = await fetch(`/api/admin/teachers/${id}/resend-link`, { method: "POST" });
+    setResendingId(null);
+    if (res.ok) {
+      setResendMsg("Link wurde erfolgreich neu gesendet.");
+    } else {
+      const d = await res.json();
+      setResendMsg("Fehler: " + (d.error ?? res.status));
+    }
+  }
 
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Lehrer "${name}" wirklich löschen? Alle zugehörigen Buchungen werden ebenfalls gelöscht.`)) return;
@@ -65,6 +81,12 @@ export default function AdminTeachersPage() {
           + Neuer Lehrer
         </Link>
       </div>
+
+      {resendMsg && (
+        <div className={`mb-4 rounded-xl px-4 py-3 text-sm border ${resendMsg.startsWith("Fehler") ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"}`}>
+          {resendMsg}
+        </div>
+      )}
 
       {loading && <p className="text-gray-400">Lade...</p>}
 
@@ -112,7 +134,16 @@ export default function AdminTeachersPage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-right">
+                  <td className="px-5 py-3 text-right space-x-3">
+                    {t.mustChangePassword && (
+                      <button
+                        onClick={() => handleResendLink(t.id)}
+                        disabled={resendingId === t.id}
+                        className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-40"
+                      >
+                        {resendingId === t.id ? "Sendet..." : "Link senden"}
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDelete(t.id, t.name)}
                       disabled={deletingId === t.id}

@@ -66,10 +66,11 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!Number.isInteger(grade) || grade < 1 || grade > 8) {
-      // ⚠️ Du kannst hier je nach Track/Level differenzieren, erstmal simpel
+    const maxGrade = schoolTrack === "BHS" ? 9 : 8;
+    const minGrade = schoolTrack === "BHS" ? 5 : 1;
+    if (!Number.isInteger(grade) || grade < minGrade || grade > maxGrade) {
       return NextResponse.json(
-        { error: "Klasse muss eine Zahl sein (z.B. 1–8)." },
+        { error: `Klasse muss zwischen ${minGrade} und ${maxGrade} liegen.` },
         { status: 400 }
       );
     }

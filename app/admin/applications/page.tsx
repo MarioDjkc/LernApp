@@ -10,8 +10,34 @@ type Application = {
   subject: string | null;
   letter: string | null;
   filePath: string | null;
+  schoolTrack: string | null;
+  levelPref: string | null;
+  schoolForms: string | null;
   createdAt: string;
 };
+
+const FORM_LABELS: Record<string, string> = {
+  AHS_GYMNASIUM: "Gymnasium", AHS_REALGYMNASIUM: "Realgymnasium",
+  AHS_WK_REALGYMNASIUM: "WK-Realgymnasium", AHS_BORG: "BORG",
+  AHS_SCHWERPUNKT: "AHS Schwerpunkt", BHS_HTL: "HTL", BHS_HAK: "HAK",
+  BHS_HLW: "HLW", BHS_MODE: "HLA Mode", BHS_KUNST_GESTALTUNG: "Kunst & Gestaltung",
+  BHS_TOURISMUS: "Tourismus", BHS_SOZIALPAED: "Sozialpaedagogik",
+  BHS_LAND_FORST: "Land- & Forstwirtschaft",
+};
+
+function trackLabel(v: string | null) {
+  if (v === "AHS") return "Nur AHS";
+  if (v === "BHS") return "Nur BHS";
+  if (v === "BOTH") return "AHS & BHS";
+  return "—";
+}
+
+function levelLabel(v: string | null) {
+  if (v === "UNTERSTUFE") return "Nur Unterstufe (Kl. 1-4)";
+  if (v === "OBERSTUFE") return "Nur Oberstufe (Kl. 5+)";
+  if (v === "BOTH") return "Unter- & Oberstufe";
+  return "—";
+}
 
 export default function AdminApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -72,6 +98,9 @@ export default function AdminApplicationsPage() {
                 {a.subject && (
                   <div className="text-xs text-blue-600 mt-0.5">Fach: {a.subject}</div>
                 )}
+                <div className="text-xs text-gray-400 mt-0.5">
+                  {trackLabel(a.schoolTrack)} · {levelLabel(a.levelPref)}
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-400">
@@ -110,9 +139,26 @@ export default function AdminApplicationsPage() {
                 <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-lg p-4 border border-gray-200">
                   {a.letter}
                 </p>
+                {a.schoolForms && (() => {
+                  try {
+                    const forms: string[] = JSON.parse(a.schoolForms);
+                    return (
+                      <div className="mt-3">
+                        <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Schulformen</div>
+                        <div className="flex flex-wrap gap-1">
+                          {forms.map((f) => (
+                            <span key={f} className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">
+                              {FORM_LABELS[f] ?? f}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  } catch { return null; }
+                })()}
                 <div className="mt-4">
                   <Link
-                    href={`/admin/teachers/new?email=${encodeURIComponent(a.email)}&name=${encodeURIComponent(a.name)}&subject=${encodeURIComponent(a.subject ?? "")}`}
+                    href={`/admin/teachers/new?email=${encodeURIComponent(a.email)}&name=${encodeURIComponent(a.name)}&subject=${encodeURIComponent(a.subject ?? "")}&schoolTrack=${encodeURIComponent(a.schoolTrack ?? "BOTH")}&levelPref=${encodeURIComponent(a.levelPref ?? "BOTH")}&schoolForms=${encodeURIComponent(a.schoolForms ?? "")}`}
                     className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700"
                   >
                     Als Lehrer anlegen

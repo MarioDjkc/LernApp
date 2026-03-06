@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import prisma from "@/app/lib/prisma";
+import { isAdminAuthed } from "@/app/api/admin/_auth";
 
 export const runtime = "nodejs";
 
-function unauthorized() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
+export async function GET(req: Request) {
+  if (!isAdminAuthed(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-export async function GET() {
   const applications = await prisma.teacherApplication.findMany({
     orderBy: { createdAt: "desc" },
   });
@@ -17,7 +17,9 @@ export async function GET() {
 }
 
 export async function DELETE(req: Request) {
-  if (cookies().get("admin_auth")?.value !== "1") return unauthorized();
+  if (!isAdminAuthed(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { id } = await req.json();
   if (!id) return NextResponse.json({ error: "id fehlt." }, { status: 400 });

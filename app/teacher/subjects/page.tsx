@@ -19,8 +19,10 @@ type Offer = {
 
 type TeacherProfile = {
   id: string;
-  subject: string; // "Mathematik, Englisch"
+  subject: string;
   unterstufeOnly: boolean;
+  schoolTrack: string;    // AHS / BHS / BOTH
+  allowedForms: string | null; // JSON-Array
 };
 
 type TrackValue = "AHS" | "BHS" | "ALL";
@@ -128,7 +130,22 @@ export default function TeacherSubjectsPage() {
 
   const unterstufeOnly = !!teacherProfile?.unterstufeOnly;
 
-  // Form State
+  // Erlaubte Schultypen aus Profil ableiten
+  const profileTrack = teacherProfile?.schoolTrack ?? "BOTH";
+  const allowedTrackOptions = useMemo(() => {
+    if (profileTrack === "AHS") return [{ value: "AHS", label: "AHS" }] as const;
+    if (profileTrack === "BHS") return [{ value: "BHS", label: "BHS" }] as const;
+    return [{ value: "AHS", label: "AHS" }, { value: "BHS", label: "BHS" }, { value: "ALL", label: "Alle" }] as const;
+  }, [profileTrack]);
+
+  // Erlaubte Schulformen aus Profil ableiten
+  const profileAllowedForms = useMemo((): Set<string> | null => {
+    if (!teacherProfile?.allowedForms) return null;
+    try { return new Set(JSON.parse(teacherProfile.allowedForms)); }
+    catch { return null; }
+  }, [teacherProfile]);
+
+  // Form State – Startwert basierend auf Profil
   const [subjectId, setSubjectId] = useState("");
   const [schoolTrack, setSchoolTrack] = useState<TrackValue>("AHS");
   const [schoolForm, setSchoolForm] = useState<FormValue>("ALL");
@@ -156,7 +173,14 @@ export default function TeacherSubjectsPage() {
 
       setAllSubjects(subJson.data || []);
       setOffers(offJson.data || []);
-      setTeacherProfile(profJson.data || null);
+      const profile = profJson.data || null;
+      setTeacherProfile(profile);
+
+      // Initialen schoolTrack aus Profil setzen
+      if (profile?.schoolTrack && profile.schoolTrack !== "BOTH") {
+        setSchoolTrack(profile.schoolTrack as TrackValue);
+        if (profile.schoolTrack === "BHS") setLevel("OBERSTUFE");
+      }
 
       // Default subjectId: erstes Fach aus Lehrerprofil
       const names = parseTeacherSubjects(profJson?.data?.subject || "");
@@ -188,11 +212,11 @@ export default function TeacherSubjectsPage() {
     return allSubjects.filter((s) => allowed.has(normalizeSubject(s.name)));
   }, [allSubjects, teacherProfile]);
 
-  // Track Optionen: UnterstufeOnly => kein BHS/ALL
+  // Track Optionen: basierend auf Profil + unterstufeOnly
   const trackOptions = useMemo(() => {
-    if (!unterstufeOnly) return SCHOOL_TRACKS;
-    return SCHOOL_TRACKS.filter((x) => x.value !== "BHS" && x.value !== "ALL");
-  }, [unterstufeOnly]);
+    if (unterstufeOnly) return SCHOOL_TRACKS.filter((x) => x.value === "AHS");
+    return allowedTrackOptions as unknown as typeof SCHOOL_TRACKS;
+  }, [unterstufeOnly, allowedTrackOptions]);
 
   // Level Optionen: BHS => nur Oberstufe; UnterstufeOnly => kein Ober/ALL
   const levelOptions = useMemo(() => {
@@ -224,23 +248,21 @@ export default function TeacherSubjectsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unterstufeOnly]);
 
-  // Form Optionen abhängig vom Track
+  // Form Optionen: gefiltert nach erlaubten Formen aus Profil
   const formOptions = useMemo(() => {
-    if (schoolTrack === "ALL") {
-      const merged = [...SCHOOL_FORMS.AHS, ...SCHOOL_FORMS.BHS];
-      const unique = merged.filter((x) => x.value !== "ALL");
-      return [{ value: "ALL", label: "Alle" }, ...unique];
+    let base: { value: string; label: string }[] = [];
+    if (schoolTrack === "ALL" || schoolTrack === "AHS") {
+      base.push(...SCHOOL_FORMS.AHS.filter((x) => x.value !== "ALL"));
     }
-    if (schoolTrack === "AHS") {
-      const unique = SCHOOL_FORMS.AHS.filter((x) => x.value !== "ALL");
-      return [{ value: "ALL", label: "Alle" }, ...unique];
+    if (schoolTrack === "ALL" || schoolTrack === "BHS") {
+      base.push(...SCHOOL_FORMS.BHS.filter((x) => x.value !== "ALL"));
     }
-    if (schoolTrack === "BHS") {
-      const unique = SCHOOL_FORMS.BHS.filter((x) => x.value !== "ALL");
-      return [{ value: "ALL", label: "Alle" }, ...unique];
+    // Auf erlaubte Formen einschraenken falls im Profil gesetzt
+    if (profileAllowedForms) {
+      base = base.filter((x) => profileAllowedForms.has(x.value));
     }
-    return [{ value: "ALL", label: "Alle" }];
-  }, [schoolTrack]);
+    return [{ value: "ALL", label: "Alle" }, ...base];
+  }, [schoolTrack, profileAllowedForms]);
 
   // Range automatisch clampen bei Änderungen
   useEffect(() => {

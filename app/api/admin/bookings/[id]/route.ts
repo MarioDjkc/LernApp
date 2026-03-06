@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import prisma from "@/app/lib/prisma";
+import { isAdminAuthed } from "@/app/api/admin/_auth";
 
 export const runtime = "nodejs";
 
-function unauthorized() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
-
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  if (cookies().get("admin_auth")?.value !== "1") return unauthorized();
+  if (!isAdminAuthed(_req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { id } = params;
   const exists = await prisma.booking.findUnique({ where: { id } });
@@ -20,7 +18,9 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  if (cookies().get("admin_auth")?.value !== "1") return unauthorized();
+  if (!isAdminAuthed(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { id } = params;
   const { status } = await req.json();

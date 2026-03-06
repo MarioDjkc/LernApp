@@ -75,8 +75,10 @@ model Teacher {
   password           String
   mustChangePassword Boolean @default(true)
 
-  // ✅ Unterstufe-only Flag (true = nur Unterstufe; false = Unter + Ober)
+  // Stufen/Schultyp-Einschraenkungen (gesetzt vom Admin beim Anlegen)
   unterstufeOnly Boolean @default(false)
+  schoolTrack    String  @default("BOTH")   // AHS / BHS / BOTH
+  allowedForms   String? // JSON-Array z.B. ["AHS_GYMNASIUM","BHS_HTL"]
 
   bookings            Booking[]            @relation("teacherBookings")
   passwordResetTokens PasswordResetToken[]
@@ -181,13 +183,16 @@ model Booking {
 }
 
 model TeacherApplication {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  subject   String?
-  letter    String?
-  filePath  String?
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  subject     String?
+  letter      String?
+  filePath    String?
+  schoolTrack String?  // AHS / BHS / BOTH
+  levelPref   String?  // UNTERSTUFE / OBERSTUFE / BOTH
+  schoolForms String?  // JSON-Array z.B. ["AHS_GYMNASIUM","BHS_HTL"]
+  createdAt   DateTime @default(now())
 }
 
 model PasswordResetToken {

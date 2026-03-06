@@ -14,6 +14,10 @@ export async function POST(req: Request) {
     const email = String(form.get("email") || "");
     const subject = String(form.get("subject") || "");
     const letter = String(form.get("letter") || "");
+    const schoolTrack = String(form.get("schoolTrack") || "BOTH");
+    const levelPref = String(form.get("levelPref") || "BOTH");
+    const schoolFormsRaw = form.get("schoolForms");
+    const schoolForms = schoolFormsRaw ? String(schoolFormsRaw) : null;
     const file = form.get("file") as File | null;
 
     if (!name || !email || !letter) {
@@ -35,9 +39,11 @@ export async function POST(req: Request) {
       await fs.writeFile(path.join(uploadDir, safeName), bytes);
     }
 
-    // ✅ In DB speichern
-    await prisma.teacherApplication.create({
-      data: { name, email, subject, letter, filePath },
+    // In DB speichern (upsert: bestehende Bewerbung mit gleicher E-Mail wird aktualisiert)
+    await prisma.teacherApplication.upsert({
+      where: { email },
+      create: { name, email, subject, letter, filePath, schoolTrack, levelPref, schoolForms },
+      update: { name, subject, letter, filePath, schoolTrack, levelPref, schoolForms },
     });
 
     // ✅ Mail-Transport (einmal erstellen, dann 2 Mails schicken)
@@ -87,8 +93,14 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ ok: true });
-  } catch (err) {
+  } catch (err: any) {
     console.error("POST /api/teachers/apply error:", err);
-    return NextResponse.json({ error: "ServerFehler" }, { status: 500 });
+    if (err?.code === "P2002") {
+      return NextResponse.json(
+        { error: "Mit dieser E-Mail wurde bereits eine Bewerbung eingereicht." },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }
 }
