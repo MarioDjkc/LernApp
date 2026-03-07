@@ -32,8 +32,8 @@ export default function Home() {
             <br /> einfach buchen
           </h1>
           <p className="text-gray-600">
-            Vereinbare online deine Einzelsitzung mit einem Nachhilfelehrer
-            deiner Wahl.
+            Vereinbare online deine Einzelsitzung mit einer Nachhilfelehrerin
+            oder einem Nachhilfelehrer deiner Wahl.
           </p>
 
           {/* Buttons: Jetzt buchen + Lehrer-Login */}
@@ -65,7 +65,7 @@ export default function Home() {
       <section className="bg-white border-t">
         <div className="mx-auto max-w-6xl px-6 md:px-10 py-14">
           <h2 className="text-3xl font-bold text-center mb-10">
-            Unsere Lehrer
+            Unsere Lehrerinnen & Lehrer
           </h2>
           <TeacherCarouselWrapper teachers={teachers} />
         </div>
@@ -78,9 +78,9 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-10 text-center">
             <div className="space-y-3">
               <div className="text-4xl">👩‍🏫</div>
-              <h3 className="font-semibold text-xl">Lehrer wählen</h3>
+              <h3 className="font-semibold text-xl">Lehrperson wählen</h3>
               <p className="text-gray-600">
-                Wähle deinen Lehrer sowie Datum und Zeit aus.
+                Wähle deine Lehrerin oder deinen Lehrer sowie Datum und Zeit aus.
               </p>
             </div>
             <div className="space-y-3">
@@ -94,7 +94,7 @@ export default function Home() {
               <div className="text-4xl">📚</div>
               <h3 className="font-semibold text-xl">Lernen!</h3>
               <p className="text-gray-600">
-                Triff deinen Lehrer und beginne die Nachhilfe.
+                Triff deine Lehrerin oder deinen Lehrer und beginne die Nachhilfe.
               </p>
             </div>
           </div>
@@ -108,7 +108,7 @@ export default function Home() {
             Was unsere Nutzer sagen
           </h2>
           <p className="text-center text-gray-600 mb-10">
-            Echte Erfahrungen von Schülern und Eltern
+            Echte Erfahrungen von Schülerinnen, Schülern und Eltern
           </p>
 
           <div className="grid gap-8 md:grid-cols-3">
@@ -116,7 +116,7 @@ export default function Home() {
               {
                 name: "Lea K.",
                 role: "Schülerin (Mathe)",
-                text: "Ich habe endlich Mathe verstanden. Die Buchung war super einfach und mein Lehrer war mega nett!",
+                text: "Ich habe endlich Mathe verstanden. Die Buchung war super einfach und meine Lehrerin war mega nett!",
                 stars: 5,
               },
               {
@@ -128,7 +128,7 @@ export default function Home() {
               {
                 name: "Sandra M.",
                 role: "Mutter",
-                text: "Transparente Buchung, freundliche Lehrer und schnelle Terminbestätigung. Absolute Empfehlung.",
+                text: "Transparente Buchung, freundliche Lehrerinnen und Lehrer und schnelle Terminbestätigung. Absolute Empfehlung.",
                 stars: 5,
               },
             ].map((t) => (
@@ -163,7 +163,7 @@ export default function Home() {
           <div>
             <div className="font-bold text-lg">LernApp</div>
             <p className="text-gray-600 mt-2">
-              Nachhilfe einfach online buchen – von geprüften Lehrkräften.
+              Nachhilfe einfach online buchen – von geprüften Lehrerinnen & Lehrern.
             </p>
           </div>
           <div>
@@ -178,13 +178,17 @@ export default function Home() {
           <div>
             <div className="font-semibold mb-2">Rechtliches</div>
             <ul className="space-y-1 text-gray-600">
-              <li>AGB</li>
+              <li>
+                <a href="/agb" className="hover:text-blue-600 hover:underline">AGB</a>
+              </li>
               <li>
                 <a href="/datenschutz" className="hover:text-blue-600 hover:underline">
                   Datenschutzerklärung
                 </a>
               </li>
-              <li>Impressum</li>
+              <li>
+                <a href="/impressum" className="hover:text-blue-600 hover:underline">Impressum</a>
+              </li>
             </ul>
           </div>
           <div>

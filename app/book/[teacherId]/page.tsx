@@ -346,10 +346,12 @@ export default function BookPage() {
   const timeValid          = hours > 0 && startTime < endTime && !timeOutOfSchedule;
   const overlappingSlot    = timeValid ? isTimeOverlapping(startTime, endTime, bookedSlots) : null;
 
+  const [agbAccepted, setAgbAccepted] = useState(false);
+
   const canSubmit =
     !!teacher && !!studentName.trim() && !!studentEmail.trim() &&
     !!selectedSubject && !!selectedDate &&
-    !dateUnavailable && timeValid && !overlappingSlot && !submitting;
+    !dateUnavailable && timeValid && !overlappingSlot && agbAccepted && !submitting;
 
   // ── Handlers ─────────────────────────────────────────────────────
   async function submitRating(e: React.FormEvent) {
@@ -586,12 +588,29 @@ export default function BookPage() {
 
             {error && <p className="text-red-500 text-sm">{error}</p>}
 
+            {/* AGB checkbox */}
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={agbAccepted}
+                onChange={(e) => setAgbAccepted(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-blue-600 shrink-0"
+              />
+              <span className="text-sm text-gray-600">
+                Ich akzeptiere die{" "}
+                <a href="/agb" target="_blank" className="text-blue-600 underline">AGB</a>
+                {" "}und habe die{" "}
+                <a href="/datenschutz" target="_blank" className="text-blue-600 underline">Datenschutzerklärung</a>
+                {" "}gelesen.
+              </span>
+            </label>
+
             <div className="flex justify-end gap-3 pt-1">
               <button type="button" onClick={() => router.back()} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700">
                 Abbrechen
               </button>
               <button type="submit" disabled={!canSubmit} className="px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold disabled:opacity-50">
-                {submitting ? "Bitte warten..." : `Jetzt buchen${hours > 0 && timeValid ? ` — ${priceFormatted} €` : ""}`}
+                {submitting ? "Bitte warten..." : `Zahlungspflichtig buchen${hours > 0 && timeValid ? ` — ${priceFormatted} €` : ""}`}
               </button>
             </div>
           </form>

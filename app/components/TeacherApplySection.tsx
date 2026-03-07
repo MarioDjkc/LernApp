@@ -28,6 +28,7 @@ export default function TeacherApplySection() {
   const [loading, setLoading] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [schoolTrack, setSchoolTrack] = useState<SchoolTrack>("BOTH");
   const [levelPref, setLevelPref] = useState<LevelPref>("BOTH");
   const [selectedForms, setSelectedForms] = useState<Set<string>>(new Set());
@@ -289,17 +290,27 @@ export default function TeacherApplySection() {
               <span className="text-xs text-gray-500">Nur PDF, max. 10 MB.</span>
             </label>
 
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={privacyAccepted}
+                onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-blue-600 shrink-0"
+              />
+              <span className="text-sm text-gray-600">
+                Ich habe die{" "}
+                <a href="/datenschutz" target="_blank" className="text-blue-600 underline">Datenschutzerklärung</a>
+                {" "}gelesen und akzeptiere sie.
+              </span>
+            </label>
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !privacyAccepted}
               className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-60"
             >
               {loading ? "Wird gesendet ..." : "Bewerbung absenden"}
             </button>
-
-            <p className="text-xs text-gray-500">
-              Mit dem Absenden akzeptierst du unsere Datenschutzbestimmungen.
-            </p>
           </form>
         </div>
       </div>
