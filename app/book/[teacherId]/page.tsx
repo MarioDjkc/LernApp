@@ -11,6 +11,7 @@ type Teacher = {
   id: string;
   name: string;
   subject: string;
+  offerSubjects?: string[];
   profilePicture?: string | null;
   description?: string | null;
   avgRating?: number | null;
@@ -320,7 +321,11 @@ export default function BookPage() {
   }, [teacherId, session]);
 
   // ── Derived state ────────────────────────────────────────────────
-  const subjects = useMemo(() => parseSubjects(teacher?.subject), [teacher]);
+  // Prefer subjects from actual TeachingOffers; fall back to Teacher.subject string
+  const subjects = useMemo(() => {
+    if (teacher?.offerSubjects && teacher.offerSubjects.length > 0) return teacher.offerSubjects;
+    return parseSubjects(teacher?.subject);
+  }, [teacher]);
   const hours    = useMemo(() => calcHours(startTime, endTime), [startTime, endTime]);
   const priceCents   = Math.round(hours * PRICE_PER_HOUR * 100);
   const priceFormatted = (priceCents / 100).toFixed(2).replace(".", ",");

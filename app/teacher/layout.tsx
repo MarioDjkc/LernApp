@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
+import Footer from "@/app/components/Footer";
 
 export default function TeacherLayout({
   children,
@@ -59,7 +60,7 @@ export default function TeacherLayout({
   if (status === "loading" || status === "unauthenticated") return null;
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 min-h-screen flex flex-col">
       {/* Navigation oben */}
       <nav className="w-full bg-white shadow px-6 py-4 flex items-center gap-6 text-base">
         <Link href="/teacher/dashboard" className={isActive("/teacher/dashboard")}>
@@ -107,7 +108,8 @@ export default function TeacherLayout({
       </nav>
 
       {/* Seiteninhalt */}
-      <main className="p-6">{children}</main>
+      <main className="flex-1 p-6">{children}</main>
+      <Footer />
     </div>
   );
 }

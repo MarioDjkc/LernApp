@@ -223,7 +223,7 @@ function PaymentsContent() {
         <div className="space-y-4">
           {bookings.map((b) => {
             const statusInfo = STATUS_LABELS[b.status] ?? { label: b.status, color: "text-gray-600 bg-gray-50 border-gray-200" };
-            const canPay = b.status === "pending" || b.status === "checkout_started";
+            const canPay = b.status === "pending";
             const isPaid = b.status === "paid";
 
             // Show rating form only on the first paid booking per teacher

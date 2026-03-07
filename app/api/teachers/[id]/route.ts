@@ -31,6 +31,10 @@ export async function GET(_req: Request, { params }: Params) {
             student: { select: { name: true } },
           },
         },
+        offers: {
+          select: { subject: { select: { name: true } } },
+          distinct: ["subjectId"],
+        },
       },
     });
 
@@ -43,8 +47,11 @@ export async function GET(_req: Request, { params }: Params) {
         ? teacher.ratings.reduce((s, r) => s + r.stars, 0) / teacher.ratings.length
         : null;
 
+    // Distinct subject names from actual TeachingOffers
+    const offerSubjects = [...new Set(teacher.offers.map((o) => o.subject.name).filter(Boolean))];
+
     return NextResponse.json({
-      data: { ...teacher, avgRating, ratingCount: teacher.ratings.length },
+      data: { ...teacher, avgRating, ratingCount: teacher.ratings.length, offerSubjects },
     });
   } catch (err) {
     logError("app/api/teachers/[id] GET", err).catch(() => {});

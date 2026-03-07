@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
+import Footer from "@/app/components/Footer";
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -36,7 +37,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   if (status === "loading" || status === "unauthenticated") return null;
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
 
       {/* NAVIGATION */}
       <nav className="w-full bg-white border-b shadow-sm px-6 py-4 flex items-center gap-6 text-lg">
@@ -70,9 +71,10 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
       </nav>
 
       {/* SEITEN-INHALT */}
-      <div className="px-6 py-4">
+      <div className="flex-1 px-6 py-4">
         {children}
       </div>
+      <Footer />
     </div>
   );
 }
