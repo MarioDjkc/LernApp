@@ -95,23 +95,42 @@
     admin and drives which subjects appear here. TeachingOffers are the
     normalized DB records used for matching students.
 
-  3b. Set Availability (Time Slots)
-  ----------------------------------
+  3c. Manage Profile
+  -------------------
+  /teacher/profile
+    -> upload profile picture (POST /api/teacher/profile/picture)
+       -> saves image to /public/uploads/profiles/, stores URL in Teacher.profilePicture
+    -> edit name, address, description (PATCH /api/teacher/profile)
+    -> description is shown to students on /book/:teacherId
+    -> view all received ratings (stars + comments) with average score
+       GET /api/ratings?teacherId=...
+
+  3b. Set Unavailability (Blocked Date Ranges)
+  ---------------------------------------------
   /teacher/availability
-    -> select which TeachingOffer this slot is for (or "for all")
-    -> pick date, start time, end time
-    -> POST /api/teacher/availability
-       -> creates Availability record linked to teacher (and optionally an offer)
-    -> can delete a slot:
-       DELETE /api/teacher/availability/:id
-    -> slots appear in the list and are visible to matching students on /book
+    -> teacher is assumed available every day by default
+    -> enters date ranges when NOT available (e.g. vacation, illness):
+       from date, to date, optional note
+    -> POST /api/teacher/unavailability
+       -> creates TeacherUnavailability record (fromDate, toDate, note)
+    -> can delete a period:
+       DELETE /api/teacher/unavailability/:id
+    -> blocked dates are visible to students on /book (day picker greys out blocked days)
 
 
 ================================================================================
   4. STUDENT SCENARIOS
 ================================================================================
 
-  4a. Student Login
+  4a. Manage Student Profile
+  --------------------------
+  /student/profile
+    -> upload profile picture (POST /api/student/profile/picture)
+       -> saves image to /public/uploads/profiles/, stores URL in User.profilePicture
+    -> edit name and address (PATCH /api/student/profile)
+    -> school info (track, form, grade, school name) shown read-only
+
+  4b. Student Login
   -----------------
   /auth/login
     -> enter email + password
@@ -122,31 +141,48 @@
   NOTE: Students can also be created automatically during booking (upsert by
   email), with a temporary placeholder password.
 
-  4b. Search for a Teacher
+  4c. Search for a Teacher
   -------------------------
   /student/dashboard
     -> search by text OR click a subject chip
     -> GET /api/search?subject=...&studentEmail=...
        -> returns teachers whose TeachingOffers match the student's school profile
     OR GET /api/teachers  (no filter, returns all)
-    -> teacher cards displayed with name, subject, "Termin vereinbaren" button
+       -> response now includes profilePicture, avgRating, ratingCount
+    -> teacher cards show: profile picture, name, subject, avg star rating
 
-  4c. Book a Lesson (full Stripe flow)
+  4d. Book a Lesson (full Stripe flow)
   -------------------------------------
 
-  STEP 1 – Pick a slot
+  STEP 1 – View teacher & pick date/time
   /book/:teacherId
-    -> student enters: name, email
+    -> loads full teacher detail: GET /api/teachers/:id
+       -> includes profilePicture, description, avgRating, ratingCount, ratings[]
+    -> shows teacher profile picture, name, star rating, description at top
+    -> shows all existing ratings (stars + comment + date) below the form
+    -> if student has a paid booking with this teacher:
+         rating form shown (1-5 stars + comment)
+         -> POST /api/ratings  { teacherId, stars, comment? }
+         -> one rating per student-teacher pair (upsert — can be updated)
+    -> name + email pre-filled from next-auth session (editable)
     -> selects subject
-    -> (after valid email entered) loads free slots:
-       GET /api/student/availability?teacherId=...&subject=...&studentEmail=...
-       -> returns Availability slots that match teacher + subject + student profile
-    -> student selects a slot
+    -> picks a date (day picker):
+       GET /api/student/teacher-blocked-dates?teacherId=...
+       -> returns TeacherUnavailability periods; blocked days show red warning
+    -> picks start time and end time (free input, e.g. 10:00 – 11:30)
+       GET /api/student/teacher-booked-slots?teacherId=...&date=...
+       -> returns already-taken time ranges for that day
+       -> taken slots shown as hint; time inputs turn red + submit blocked if overlap
+    -> duration and cost calculated live: hours × 33 € shown in preview
     -> adds a note (optional)
-    -> clicks "Termin buchen"
-    -> POST /api/bookings/create
+    -> clicks "Jetzt buchen — XX,XX €"
+    -> POST /api/bookings
        -> upsert student User in DB
+       -> priceCents calculated from duration: (minutes / 60) × 33 × 100
+       -> checks for overlapping active bookings (pending/checkout_started/
+          payment_method_saved/paid); returns HTTP 409 if conflict found
        -> creates Booking record (status: "pending")
+    -> POST /api/student/checkout { bookingId }
        -> creates Stripe Checkout Session (mode=setup, saves card, no charge yet)
        -> updates Booking status to "checkout_started"
        -> returns Stripe checkout URL
@@ -235,16 +271,33 @@
 ================================================================================
 
   Chat room is auto-created when teacher accepts (in /api/bookings/confirm):
-    -> Chat record created with teacherId + studentEmail + bookingId
+    -> checks if a Chat already exists for this teacherId + studentEmail pair
+    -> if yes: reuses existing chat (no duplicate created)
+    -> if no:  creates new Chat record with teacherId + studentEmail + bookingId
+    => one chat per teacher-student pair, regardless of how many bookings exist
+
+  Unread message badge:
+    -> Chat model tracks teacherLastRead and studentLastRead (DateTime, nullable)
+    -> while a chat is open the polling loop calls:
+         PATCH /api/chat/:chatId/mark-read  { role: "teacher" | "student" }
+         -> updates the corresponding lastRead timestamp to now
+    -> teacher nav polls GET /api/teacher/unread-chats-count?email=...
+       -> counts chats where latest student message is newer than teacherLastRead
+    -> student nav polls GET /api/student/unread-chats-count
+       -> counts chats where latest teacher message is newer than studentLastRead
+    -> red dot badge shown on the Chat nav link (same style as Buchungen badge)
+    -> badge count refreshes on every route change
 
   Teacher chat:   /teacher/chat
     -> GET /api/teacher/chat?email=...  -> lists all teacher's chats
     -> GET /api/chat/:chatId/messages   -> loads messages (polled every 1.2s)
+    -> PATCH /api/chat/:chatId/mark-read { role: "teacher" } -> marks as read
     -> POST /api/chat/:chatId/messages  -> sends message as "teacher"
 
   Student chat:   /student/chat
     -> GET /api/student/chat?email=...  -> lists all student's chats
     -> GET /api/chat/:chatId/messages   -> loads messages (polled every 1.2s)
+    -> PATCH /api/chat/:chatId/mark-read { role: "student" } -> marks as read
     -> POST /api/chat/:chatId/messages  -> sends message as "student"
 
   Messages have a sender field: "teacher" | "student" | "system"
@@ -295,8 +348,8 @@
     |     |--[payment fails]---------> payment_failed
     |     |
     |     v
-    |   paid                          (card charged, student emailed, slot deleted,
-    |                                  chat room created)
+    |   paid                          (card charged, student emailed,
+    |                                  chat room created or reused)
     v
   teacher_paid                        (60% transferred to teacher, cron job)
 
@@ -319,10 +372,12 @@
   /search                    Search page
   /student/dashboard         Student: find teachers, search by subject
   /student/chat              Student: chat with teachers
+  /student/profile           Student: manage profile picture, name, address
   /teacher/dashboard         Teacher: calendar + booking management
-  /teacher/availability      Teacher: manage availability slots
+  /teacher/availability      Teacher: manage unavailability periods
   /teacher/subjects          Teacher: manage teaching offers
   /teacher/chat              Teacher: chat with students
+  /teacher/profile           Teacher: manage profile picture, description, address; view ratings
   /teacher/set-password      Teacher: first-time password setup via token link
   /teacher/chat/:chatId      Teacher: individual chat (alternate route)
 
@@ -351,18 +406,29 @@
   POST /api/teacher/offers/delete     Delete single offer
   POST /api/teacher/offers/delete-by-subjects  Delete by subject
   POST /api/teacher/offers/ensure-all-form     Ensure ALL school form offer exists
-  GET/POST /api/teacher/availability  Get/create availability slots
-  DELETE /api/teacher/availability/:id  Delete availability slot
-  GET  /api/teacher/profile           Get teacher profile
+  GET/POST /api/teacher/availability  Get/create availability slots (legacy)
+  DELETE /api/teacher/availability/:id  Delete availability slot (legacy)
+  GET/POST /api/teacher/unavailability  Get/create unavailability periods (blocked date ranges)
+  DELETE /api/teacher/unavailability/:id  Delete unavailability period
+  GET/PATCH /api/teacher/profile      Get/update teacher profile (name, address, description, avgRating)
+  POST /api/teacher/profile/picture   Upload teacher profile picture (multipart, saves to /public/uploads/profiles/)
+  GET/PATCH /api/student/profile      Get/update student profile (name, address)
+  POST /api/student/profile/picture   Upload student profile picture (multipart)
   GET/POST /api/teacher/chat          Teacher chat list / create chat
   POST /api/teacher/chat/:chatId/message  Send message as teacher
-  GET  /api/student/availability      Get available slots for student
+  GET  /api/teacher/unread-chats-count  Count chats with unread student messages (for badge)
+  GET  /api/student/unread-chats-count  Count chats with unread teacher messages (for badge)
+  GET  /api/student/availability      Get available slots for student (legacy)
+  GET  /api/student/teacher-blocked-dates  Get teacher's unavailability periods (for booking page)
+  GET  /api/student/teacher-booked-slots  Get already-booked time ranges for a teacher on a given day
   GET  /api/student/chat              Student chat list
   POST /api/bookings                  (legacy – no Stripe, simple booking)
   GET  /api/bookings/teacher          Get bookings for a teacher
   GET  /api/bookings/student          Get bookings for a student
   GET  /api/chat/:chatId/messages     Load messages
   POST /api/chat/:chatId/messages     Send message
+  PATCH /api/chat/:chatId/mark-read  Mark chat as read for a given role (teacher|student)
+  GET/POST /api/ratings               Get ratings for a teacher / student submits a rating
   GET  /api/subjects                  List all subjects
   GET  /api/search                    Search teachers by subject + student profile
   GET  /api/register                  Student registration
