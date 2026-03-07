@@ -7,6 +7,13 @@ import nodemailer from "nodemailer";
 import { logError } from "@/app/lib/logError";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // On Vercel, CRON_SECRET is set and Vercel sends it as a Bearer token.
+  // Locally CRON_SECRET is not set, so the check is skipped entirely.
+  const secret = process.env.CRON_SECRET;
+  if (secret && req.headers.authorization !== `Bearer ${secret}`) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
   try {
     const now = new Date();
     const cutoff = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
