@@ -46,21 +46,19 @@ export async function GET(req: Request) {
         id: true,
         name: true,
         email: true,
-        subject: true, // bleibt dein String-Feld
+        subject: true,
+        profilePicture: true,
         offers: {
-          select: {
-            subject: { select: { name: true } },
-          },
+          select: { subject: { select: { name: true } } },
         },
+        ratings: { select: { stars: true } },
       },
       orderBy: { name: "asc" },
     });
 
     const mapped = teachers.map((t) => {
-      // 1) Primär: teacher.subject (String)
       let subjects = uniqueSubjectsFromString(t.subject);
 
-      // 2) Fallback: wenn teacher.subject leer ist -> aus offers ziehen
       if (subjects.length === 0 && t.offers?.length) {
         const seen = new Set<string>();
         const out: string[] = [];
@@ -68,19 +66,24 @@ export async function GET(req: Request) {
           const name = o.subject?.name?.trim();
           if (!name) continue;
           const key = name.toLowerCase();
-          if (!seen.has(key)) {
-            seen.add(key);
-            out.push(name);
-          }
+          if (!seen.has(key)) { seen.add(key); out.push(name); }
         }
         subjects = out;
       }
+
+      const avgRating =
+        t.ratings.length > 0
+          ? t.ratings.reduce((s, r) => s + r.stars, 0) / t.ratings.length
+          : null;
 
       return {
         id: t.id,
         name: t.name,
         email: t.email,
-        subject: subjects.join(", "), // ✅ genau das willst du in der Karte sehen
+        subject: subjects.join(", "),
+        profilePicture: t.profilePicture ?? null,
+        avgRating,
+        ratingCount: t.ratings.length,
       };
     });
 

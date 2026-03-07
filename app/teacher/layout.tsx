@@ -15,6 +15,7 @@ export default function TeacherLayout({
   const router = useRouter();
   const { data: session, status } = useSession();
   const [pendingCount, setPendingCount] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -25,12 +26,12 @@ export default function TeacherLayout({
     }
   }, [status, session]);
 
-  // Fetch pending booking count whenever the route changes
+  // Fetch pending booking count + unread chat count whenever the route changes
   useEffect(() => {
     if (status !== "authenticated" || !session?.user?.email) return;
-    fetch(`/api/bookings/teacher?email=${encodeURIComponent(session.user.email)}`, {
-      cache: "no-store",
-    })
+    const email = encodeURIComponent(session.user.email);
+
+    fetch(`/api/bookings/teacher?email=${email}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         const count = (data.bookings ?? []).filter(
@@ -38,6 +39,11 @@ export default function TeacherLayout({
         ).length;
         setPendingCount(count);
       })
+      .catch(() => {});
+
+    fetch(`/api/teacher/unread-chats-count?email=${email}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => setUnreadChatCount(data.count ?? 0))
       .catch(() => {});
   }, [pathname, status, session]);
 
@@ -58,14 +64,22 @@ export default function TeacherLayout({
         <Link href="/teacher/subjects" className={isActive("/teacher/subjects")}>
           Meine Fächer
         </Link>
-        <Link href="/teacher/chat" className={isActive("/teacher/chat")}>
+        <Link href="/teacher/chat" className={`relative ${isActive("/teacher/chat")}`}>
           Chat
+          {unreadChatCount > 0 && (
+            <span className="absolute -bottom-1 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+              {unreadChatCount}
+            </span>
+          )}
         </Link>
         <Link href="/teacher/availability" className={isActive("/teacher/availability")}>
           Verfügbarkeit
         </Link>
         <Link href="/teacher/payments" className={isActive("/teacher/payments")}>
           Payments
+        </Link>
+        <Link href="/teacher/profile" className={isActive("/teacher/profile")}>
+          Profil
         </Link>
 
         <Link href="/teacher/bookings" className={`relative ${isActive("/teacher/bookings")}`}>

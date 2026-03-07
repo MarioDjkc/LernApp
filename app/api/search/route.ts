@@ -26,10 +26,16 @@ export async function GET(req: Request) {
     // Wenn kein Suchbegriff -> optional alle Lehrer zurückgeben (oder leer)
     if (!subjectQuery) {
       const teachers = await prisma.teacher.findMany({
-        select: { id: true, name: true, email: true, subject: true },
+        select: { id: true, name: true, email: true, subject: true, profilePicture: true, ratings: { select: { stars: true } } },
         orderBy: { name: "asc" },
       });
-      return NextResponse.json({ data: teachers });
+      return NextResponse.json({
+        data: teachers.map((t) => ({
+          ...t,
+          avgRating: t.ratings.length > 0 ? t.ratings.reduce((s, r) => s + r.stars, 0) / t.ratings.length : null,
+          ratingCount: t.ratings.length,
+        })),
+      });
     }
 
     // Wenn keine Student-Email -> wir suchen nur nach Fach (ohne Schulfilter)
@@ -99,20 +105,32 @@ export async function GET(req: Request) {
       where: offerWhere,
       select: {
         teacher: {
-          select: { id: true, name: true, email: true, subject: true }, // subject ist dein "Anzeige-String"
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            subject: true,
+            profilePicture: true,
+            ratings: { select: { stars: true } },
+          },
         },
       },
     });
 
     // unique teachers
-    const map = new Map<string, { id: string; name: string; email: string; subject: string }>();
+    const map = new Map<string, { id: string; name: string; email: string; subject: string; profilePicture: string | null; avgRating: number | null; ratingCount: number }>();
     for (const o of offers) {
-      if (o.teacher?.id) {
-        map.set(o.teacher.id, {
-          id: o.teacher.id,
-          name: o.teacher.name,
-          email: o.teacher.email,
-          subject: o.teacher.subject ?? "",
+      const t = o.teacher;
+      if (t?.id && !map.has(t.id)) {
+        const avgRating = t.ratings.length > 0 ? t.ratings.reduce((s, r) => s + r.stars, 0) / t.ratings.length : null;
+        map.set(t.id, {
+          id: t.id,
+          name: t.name,
+          email: t.email,
+          subject: t.subject ?? "",
+          profilePicture: t.profilePicture ?? null,
+          avgRating,
+          ratingCount: t.ratings.length,
         });
       }
     }

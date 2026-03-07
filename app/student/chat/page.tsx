@@ -108,6 +108,13 @@ export default function StudentChatPage() {
 
         setPartnerEmail(pe);
         setPartnerName(pn);
+
+        // Als gelesen markieren
+        fetch(`/api/chat/${selectedChat}/mark-read`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "student" }),
+        }).catch(() => {});
       } finally {
         if (alive) setLoadingMessages(false);
       }

@@ -65,7 +65,39 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3) Student finden oder anlegen
+    // 3) Überschneidungs-Check: hat der Lehrer bereits eine aktive Buchung in diesem Zeitraum?
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    const ACTIVE_STATUSES = [
+      "pending",
+      "checkout_started",
+      "payment_method_saved",
+      "paid",
+    ];
+
+    const overlap = await prisma.booking.findFirst({
+      where: {
+        teacherId: teacher.id,
+        status: { in: ACTIVE_STATUSES },
+        start: { lt: endDate },
+        end: { gt: startDate },
+      },
+      select: { id: true, start: true, end: true },
+    });
+
+    if (overlap) {
+      const fmt = (d: Date) =>
+        d.toLocaleTimeString("de-AT", { hour: "2-digit", minute: "2-digit" });
+      return NextResponse.json(
+        {
+          error: `Dieser Zeitraum überschneidet sich mit einer bestehenden Buchung (${fmt(overlap.start)}–${fmt(overlap.end)}). Bitte wähle einen anderen Zeitpunkt.`,
+        },
+        { status: 409 }
+      );
+    }
+
+    // 4) Student finden oder anlegen
     const student = await prisma.user.upsert({
       where: { email: studentEmail },
       update: { name: studentName ?? undefined },
@@ -78,22 +110,24 @@ export async function POST(req: Request) {
       select: { id: true, email: true },
     });
 
-    // 4) Booking erstellen (✅ Slot NICHT löschen)
+    // 5) Preis berechnen: 33 € pro Stunde
+    const durationMinutes = (endDate.getTime() - startDate.getTime()) / 60_000;
+    const priceCents = Math.round((durationMinutes / 60) * 33 * 100);
+
+    // 6) Booking erstellen
     const booking = await prisma.booking.create({
       data: {
         teacherId: teacher.id,
         studentId: student.id,
-        start: new Date(start),
-        end: new Date(end),
-        priceCents: 0,
+        start: startDate,
+        end: endDate,
+        priceCents,
         currency: "eur",
         status: "pending",
         note,
-
-        // ✅ NEU: Verknüpfung speichern
         availabilityId: availabilityId || null,
       },
-      select: { id: true, status: true },
+      select: { id: true, status: true, priceCents: true },
     });
 
     return NextResponse.json({ ok: true, booking });

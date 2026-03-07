@@ -65,6 +65,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ).catch((mailErr) => console.error("Bestätigungsmail fehlgeschlagen:", mailErr));
     }
 
+    // 4) Chat zwischen Lehrer und Schüler – nur erstellen wenn noch keiner existiert
+    const studentEmail = booking.student?.email;
+    if (studentEmail) {
+      const existingChat = await prisma.chat.findFirst({
+        where: { teacherId: booking.teacherId, studentEmail },
+        select: { id: true },
+      });
+
+      if (!existingChat) {
+        await prisma.chat.create({
+          data: {
+            teacherId: booking.teacherId,
+            studentEmail,
+            bookingId: booking.id,
+          },
+        });
+      }
+    }
+
     return res.json({ ok: true });
   } catch (err: any) {
     logError("pages/api/bookings/confirm POST", err).catch(() => {});

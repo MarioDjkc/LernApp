@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -18,6 +19,14 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
       router.replace("/");
     }
   }, [status, session]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    fetch("/api/student/unread-chats-count", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => setUnreadChatCount(data.count ?? 0))
+      .catch(() => {});
+  }, [pathname, status]);
 
   const isActive = (path: string) =>
     pathname.startsWith(path)
@@ -34,11 +43,19 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         <Link href="/student/dashboard" className={isActive("/student/dashboard")}>
           Dashboard
         </Link>
-        <Link href="/student/chat" className={isActive("/student/chat")}>
+        <Link href="/student/chat" className={`relative ${isActive("/student/chat")}`}>
           Chat
+          {unreadChatCount > 0 && (
+            <span className="absolute -bottom-1 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+              {unreadChatCount}
+            </span>
+          )}
         </Link>
         <Link href="/student/payments" className={isActive("/student/payments")}>
           Payments
+        </Link>
+        <Link href="/student/profile" className={isActive("/student/profile")}>
+          Profil
         </Link>
 
         <div className="ml-auto flex items-center gap-3 text-sm text-gray-500">

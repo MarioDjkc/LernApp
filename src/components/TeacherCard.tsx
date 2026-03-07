@@ -1,9 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import type { Teacher } from "app/lib/types";
 
 export default function TeacherCard({ teacher }: { teacher: Teacher }) {
-  const stars = Array.from({ length: 5 }, (_, i) => i < (teacher.rating ?? 0));
+  const avg = teacher.avgRating ?? teacher.rating ?? 0;
+  const stars = Array.from({ length: 5 }, (_, i) => i < Math.round(avg));
 
   return (
     <div
@@ -15,7 +17,16 @@ export default function TeacherCard({ teacher }: { teacher: Teacher }) {
       title={teacher.name}
     >
       <div className="flex flex-col items-center">
-        <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gray-200 ring-4 ring-gray-50 mb-4" />
+        <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden bg-gray-200 ring-4 ring-gray-50 mb-4">
+          {teacher.avatarUrl || teacher.profilePicture ? (
+            <Image
+              src={(teacher.avatarUrl || teacher.profilePicture)!}
+              alt={teacher.name}
+              fill
+              className="object-cover"
+            />
+          ) : null}
+        </div>
         <h3 className="font-semibold text-base md:text-lg text-center">{teacher.name}</h3>
         <span className="mt-1 inline-flex items-center gap-1 text-xs md:text-sm px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
           {teacher.subject}
@@ -26,6 +37,9 @@ export default function TeacherCard({ teacher }: { teacher: Teacher }) {
         {stars.map((on, i) => (
           <span key={i}>{on ? "★" : "☆"}</span>
         ))}
+        {teacher.ratingCount != null && teacher.ratingCount > 0 && (
+          <span className="ml-1 text-gray-400 text-xs">({teacher.ratingCount})</span>
+        )}
       </div>
     </div>
   );

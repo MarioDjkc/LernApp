@@ -109,6 +109,13 @@ export default function TeacherChatPage() {
 
         setPartnerEmail(pe);
         setPartnerName(pn);
+
+        // Als gelesen markieren
+        fetch(`/api/chat/${selectedChat}/mark-read`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "teacher" }),
+        }).catch(() => {});
       } finally {
         if (alive) setLoadingMessages(false);
       }

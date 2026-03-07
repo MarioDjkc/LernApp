@@ -3,10 +3,12 @@ import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
 import { logError } from "@/app/lib/logError";
 
-type Params = { params: { id: string } };
+export const runtime = "nodejs";
+
+type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, { params }: Params) {
-  const { id } = params;
+  const { id } = await params;
 
   try {
     const teacher = await prisma.teacher.findUnique({
@@ -16,23 +18,36 @@ export async function GET(_req: Request, { params }: Params) {
         name: true,
         email: true,
         subject: true,
+        profilePicture: true,
+        description: true,
+        address: true,
+        ratings: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            stars: true,
+            comment: true,
+            createdAt: true,
+            student: { select: { name: true } },
+          },
+        },
       },
     });
 
     if (!teacher) {
-      return NextResponse.json(
-        { error: "Lehrer nicht gefunden" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Lehrer nicht gefunden" }, { status: 404 });
     }
 
-    return NextResponse.json({ data: teacher });
+    const avgRating =
+      teacher.ratings.length > 0
+        ? teacher.ratings.reduce((s, r) => s + r.stars, 0) / teacher.ratings.length
+        : null;
+
+    return NextResponse.json({
+      data: { ...teacher, avgRating, ratingCount: teacher.ratings.length },
+    });
   } catch (err) {
     logError("app/api/teachers/[id] GET", err).catch(() => {});
-    console.error("GET /api/teachers/[id] error:", err);
-    return NextResponse.json(
-      { error: "Serverfehler" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }
 }

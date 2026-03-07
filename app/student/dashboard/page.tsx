@@ -4,10 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
+import Image from "next/image";
+
 type Teacher = {
   id: string;
   name: string;
   subject: string;
+  profilePicture?: string | null;
+  avgRating?: number | null;
+  ratingCount?: number;
 };
 
 const SUBJECT_CHIPS: string[] = [
@@ -159,15 +164,21 @@ export default function StudentDashboardPage() {
                 className="flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm border border-gray-200"
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gray-200" />
+                  <div className="relative h-10 w-10 rounded-full bg-gray-200 shrink-0 overflow-hidden">
+                    {t.profilePicture && (
+                      <Image src={t.profilePicture} alt={t.name} fill className="object-cover" />
+                    )}
+                  </div>
 
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     <div className="font-semibold text-sm truncate max-w-[160px]">
                       {t.name}
                     </div>
                     <div className="text-xs text-gray-600">{t.subject}</div>
-                    <div className="text-[11px] text-gray-500">
-                      ★★★★☆ · 1+ Lektionen
+                    <div className="text-[11px] text-amber-500">
+                      {t.avgRating != null
+                        ? `${Array.from({ length: 5 }, (_, i) => i < Math.round(t.avgRating!) ? "★" : "☆").join("")} ${t.avgRating.toFixed(1)}`
+                        : "Noch keine Bewertung"}
                     </div>
                   </div>
                 </div>
