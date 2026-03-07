@@ -6,12 +6,13 @@ import { isAdminAuthed } from "@/app/api/admin/_auth";
 
 export const runtime = "nodejs";
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!isAdminAuthed(_req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const teacher = await prisma.teacher.findUnique({ where: { id: params.id } });
+  const { id } = await params;
+  const teacher = await prisma.teacher.findUnique({ where: { id } });
   if (!teacher) {
     return NextResponse.json({ error: "Lehrer nicht gefunden." }, { status: 404 });
   }

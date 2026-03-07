@@ -95,6 +95,7 @@ model Teacher {
   offers              TeachingOffer[]
   unavailabilities    TeacherUnavailability[]
   ratings             TeacherRating[]
+  weeklySchedule      TeacherWeeklySchedule[]
 
   @@index([email])
 }
@@ -220,6 +221,20 @@ model TeacherUnavailability {
 
   @@index([teacherId])
   @@index([fromDate, toDate])
+}
+
+model TeacherWeeklySchedule {
+  id        String  @id @default(cuid())
+  teacherId String
+  weekday   Int     // 0=Montag, 1=Dienstag, ..., 6=Sonntag
+  fromTime  String  // "09:00"
+  toTime    String  // "18:00"
+  active    Boolean @default(true)
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, weekday])
+  @@index([teacherId])
 }
 
 model ErrorLog {

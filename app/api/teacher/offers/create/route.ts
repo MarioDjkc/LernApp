@@ -93,7 +93,7 @@ export async function POST(req: Request) {
 
     const teacher = await prisma.teacher.findUnique({
       where: { email },
-      select: { id: true, unterstufeOnly: true },
+      select: { id: true, unterstufeOnly: true, allowedForms: true },
     });
 
     if (!teacher) {
@@ -140,20 +140,32 @@ export async function POST(req: Request) {
       return [level as any];
     };
 
-    // ✅ Forms expandieren: WICHTIG
-    // Jetzt gilt: "ALL" => wir erstellen einzelne Offers für ALLE Formen (nicht ein Offer mit schoolForm=ALL)
+    // Parse teacher's allowed forms from their application
+    let teacherAllowedForms: Set<string> | null = null;
+    if (teacher.allowedForms) {
+      try {
+        const parsed = JSON.parse(teacher.allowedForms);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          teacherAllowedForms = new Set(parsed);
+        }
+      } catch { /* ignore */ }
+    }
+
+    // ✅ Forms expandieren: "ALL" => nur Formen aus der Bewerbung des Lehrers (oder alle wenn keine gesetzt)
     const formsForTrack = (t: "AHS" | "BHS"): string[] => {
+      const trackForms: string[] = t === "AHS" ? [...AHS_FORMS] : [...BHS_FORMS];
+
       if (schoolForm === "ALL") {
-        return t === "AHS" ? [...AHS_FORMS] as any : [...BHS_FORMS] as any;
+        if (teacherAllowedForms) {
+          return trackForms.filter((f) => teacherAllowedForms!.has(f));
+        }
+        return trackForms;
       }
 
       const v = String(schoolForm);
       if (!isValidForm(v)) return [];
 
-      const allowed = t === "AHS"
-        ? new Set<string>(AHS_FORMS as any)
-        : new Set<string>(BHS_FORMS as any);
-
+      const allowed = new Set<string>(trackForms);
       return allowed.has(v) ? [v] : [];
     };
 

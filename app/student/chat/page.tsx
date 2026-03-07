@@ -159,8 +159,16 @@ export default function StudentChatPage() {
     <div className="flex h-[calc(100vh-70px)] bg-gray-100">
       {/* LINKS: Chat-Liste */}
       <aside className="w-[320px] bg-white border-r p-4">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-semibold">Chats</h2>
+        </div>
+
+        <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800 leading-relaxed">
+          ★ Zufrieden mit deiner Stunde? Bewerte deinen Lehrer im{" "}
+          <a href="/student/payments" className="font-semibold underline underline-offset-2 hover:text-amber-900">
+            Payments-Tab
+          </a>
+          .
         </div>
 
         {loadingChats && <p className="text-sm text-gray-500">Lade Chats…</p>}

@@ -32,16 +32,31 @@ function uniqueSubjectsFromString(s: string | null | undefined): string[] {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const studentEmail = (searchParams.get("studentEmail") || "")
-      .trim()
-      .toLowerCase();
+    const studentEmail = (searchParams.get("studentEmail") || "").trim().toLowerCase();
 
-    // Schülerprofil optional laden (wenn du später filtern willst)
-    // Aktuell: wir zeigen alle Lehrer, aber "subject" sauber.
-    // (Wenn du Level/Track filtern willst, machen wir das über Offers - nicht über teacher.level)
-    void studentEmail;
+    // If student email is provided, load their school profile for filtering
+    let offerFilter: Record<string, unknown> = {};
+    if (studentEmail) {
+      const student = await prisma.user.findUnique({
+        where: { email: studentEmail },
+        select: { schoolTrack: true, schoolForm: true, grade: true, level: true },
+      });
+      if (student?.schoolTrack && student?.schoolForm && student?.grade != null) {
+        offerFilter = {
+          offers: {
+            some: {
+              schoolTrack: student.schoolTrack,
+              schoolForm: student.schoolForm,
+              minGrade: { lte: student.grade },
+              maxGrade: { gte: student.grade },
+            },
+          },
+        };
+      }
+    }
 
     const teachers = await prisma.teacher.findMany({
+      where: offerFilter,
       select: {
         id: true,
         name: true,

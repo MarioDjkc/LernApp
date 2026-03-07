@@ -18,13 +18,14 @@ export default function TeacherLayout({
   const [unreadChatCount, setUnreadChatCount] = useState(0);
 
   useEffect(() => {
+    if (pathname === "/teacher/set-password") return;
     if (status === "unauthenticated") {
       router.replace("/");
     }
     if (status === "authenticated" && (session.user as any)?.role !== "teacher") {
       router.replace("/");
     }
-  }, [status, session]);
+  }, [status, session, pathname]);
 
   // Fetch pending booking count + unread chat count whenever the route changes
   useEffect(() => {
@@ -51,6 +52,9 @@ export default function TeacherLayout({
     pathname.startsWith(path)
       ? "text-blue-600 font-semibold"
       : "text-gray-700 hover:text-blue-600";
+
+  // set-password page is accessible without being logged in
+  if (pathname === "/teacher/set-password") return <>{children}</>;
 
   if (status === "loading" || status === "unauthenticated") return null;
 

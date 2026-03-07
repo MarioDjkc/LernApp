@@ -18,24 +18,37 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "teacherId fehlt" }, { status: 400 });
     }
 
-    const ratings = await prisma.teacherRating.findMany({
-      where: { teacherId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        stars: true,
-        comment: true,
-        createdAt: true,
-        student: { select: { name: true } },
-      },
-    });
+    const session = await getStudentSession();
+
+    const [ratings, myRatingRow] = await Promise.all([
+      prisma.teacherRating.findMany({
+        where: { teacherId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          stars: true,
+          comment: true,
+          createdAt: true,
+          student: { select: { name: true } },
+        },
+      }),
+      session
+        ? prisma.teacherRating.findFirst({
+            where: {
+              teacherId,
+              student: { email: session.email },
+            },
+            select: { stars: true, comment: true },
+          })
+        : null,
+    ]);
 
     const avg =
       ratings.length > 0
         ? ratings.reduce((s, r) => s + r.stars, 0) / ratings.length
         : null;
 
-    return NextResponse.json({ ok: true, ratings, avg, count: ratings.length });
+    return NextResponse.json({ ok: true, ratings, avg, count: ratings.length, myRating: myRatingRow ?? null });
   } catch (err) {
     logError("app/api/ratings GET", err).catch(() => {});
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });

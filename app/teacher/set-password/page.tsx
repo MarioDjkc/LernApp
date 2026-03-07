@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function SetPasswordPage() {
+  const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
@@ -44,7 +46,8 @@ export default function SetPasswordPage() {
       if (!res.ok) {
         setError(data.error || "Fehler beim Speichern des Passworts.");
       } else {
-        setSuccess("Passwort erfolgreich gesetzt! Du kannst dich jetzt anmelden.");
+        setSuccess("Passwort erfolgreich gesetzt! Du wirst weitergeleitet...");
+        setTimeout(() => router.push("/"), 1500);
       }
     } catch (err) {
       console.error(err);

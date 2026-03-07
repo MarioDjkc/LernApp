@@ -56,11 +56,11 @@ export default function StudentDashboardPage() {
       setLoading(true);
       setError(null);
 
-      let url = "/api/teachers";
+      const studentEmail = encodeURIComponent(session?.user?.email || "");
+      let url = `/api/teachers?studentEmail=${studentEmail}`;
 
       if (subject && subject.trim() !== "") {
         const query = encodeURIComponent(subject.trim());
-        const studentEmail = encodeURIComponent(session?.user?.email || "");
         url = `/api/search?subject=${query}&studentEmail=${studentEmail}`;
       }
 
@@ -130,6 +130,17 @@ export default function StudentDashboardPage() {
           />
 
           <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => { setActiveSubject(null); setSearchTerm(""); }}
+              className={`rounded-full border px-3 py-1 text-sm transition ${
+                !activeSubject && !searchTerm
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-800 border-gray-300 hover:border-blue-400"
+              }`}
+            >
+              Alle
+            </button>
             {SUBJECT_CHIPS.map((subject) => (
               <button
                 key={subject}
