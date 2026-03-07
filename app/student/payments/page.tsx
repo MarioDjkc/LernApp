@@ -28,7 +28,7 @@ type Rating = {
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending:           { label: "Ausstehend",             color: "text-yellow-600 bg-yellow-50 border-yellow-200" },
-  checkout_started:  { label: "Zahlung läuft",          color: "text-orange-600 bg-orange-50 border-orange-200" },
+  checkout_started:  { label: "Zahlung abgebrochen",     color: "text-orange-600 bg-orange-50 border-orange-200" },
   confirmed:         { label: "Bestätigt",              color: "text-blue-600 bg-blue-50 border-blue-200" },
   paid:              { label: "Bezahlt",                color: "text-green-600 bg-green-50 border-green-200" },
   teacher_cancelled: { label: "Abgesagt (Lehrer)",      color: "text-red-600 bg-red-50 border-red-200" },
