@@ -91,6 +91,14 @@ export default function TeacherAvailabilityPage() {
             return found ? { ...def, ...found } : def;
           })
         );
+      } else {
+        // No schedule saved yet — persist the defaults automatically
+        await fetch("/api/teacher/weekly-schedule", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: session.user.email, schedule: DEFAULT_SCHEDULE }),
+        });
+        // state is already DEFAULT_SCHEDULE, nothing else to update
       }
     } finally {
       setScheduleLoading(false);

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
-import Image from "next/image";
+import Avatar from "@/app/components/Avatar";
 
 type Teacher = {
   id: string;
@@ -175,11 +175,7 @@ export default function StudentDashboardPage() {
                 className="flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm border border-gray-200"
               >
                 <div className="flex items-center gap-3">
-                  <div className="relative h-10 w-10 rounded-full bg-gray-200 shrink-0 overflow-hidden">
-                    {t.profilePicture && (
-                      <Image src={t.profilePicture} alt={t.name} fill className="object-cover" />
-                    )}
-                  </div>
+                  <Avatar src={t.profilePicture} name={t.name} size={40} className="w-10 h-10" />
 
                   <div className="space-y-0.5">
                     <div className="font-semibold text-sm truncate max-w-[160px]">

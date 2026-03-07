@@ -88,6 +88,9 @@ model Teacher {
   schoolTrack    String  @default("BOTH")   // AHS / BHS / BOTH
   allowedForms   String? // JSON-Array z.B. ["AHS_GYMNASIUM","BHS_HTL"]
 
+  stripeConnectAccountId String?
+  stripeConnectOnboarded Boolean @default(false)
+
   bookings            Booking[]            @relation("teacherBookings")
   passwordResetTokens PasswordResetToken[]
   chat                Chat[]
@@ -96,8 +99,21 @@ model Teacher {
   unavailabilities    TeacherUnavailability[]
   ratings             TeacherRating[]
   weeklySchedule      TeacherWeeklySchedule[]
+  payouts             TeacherPayout[]
 
   @@index([email])
+}
+
+model TeacherPayout {
+  id               String   @id @default(cuid())
+  teacherId        String
+  amountCents      Int
+  stripeTransferId String?
+  createdAt        DateTime @default(now())
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([teacherId])
 }
 
 model Subject {

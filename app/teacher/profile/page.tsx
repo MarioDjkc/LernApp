@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import Image from "next/image";
+import Avatar from "@/app/components/Avatar";
 
 type Profile = {
   id: string;
@@ -130,15 +130,7 @@ export default function TeacherProfilePage() {
 
       {/* Profilbild */}
       <div className="bg-white rounded-2xl border shadow-sm p-6 mb-6 flex items-center gap-6">
-        <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-200 shrink-0">
-          {picPreview ? (
-            <Image src={picPreview} alt="Profilbild" fill className="object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400 text-3xl">
-              ?
-            </div>
-          )}
-        </div>
+        <Avatar src={picPreview} name={name} size={96} className="w-24 h-24 shrink-0" />
         <div>
           <button
             onClick={() => fileRef.current?.click()}

@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Image from "next/image";
+import Avatar from "@/app/components/Avatar";
 
 const PRICE_PER_HOUR = 33;
 
@@ -402,9 +402,7 @@ export default function BookPage() {
         {/* ── Teacher card ── */}
         <div className="bg-white rounded-2xl shadow-sm p-6">
           <div className="flex items-center gap-4 mb-3">
-            <div className="relative w-16 h-16 rounded-full overflow-hidden bg-gray-200 shrink-0">
-              {teacher.profilePicture && <Image src={teacher.profilePicture} alt={teacher.name} fill className="object-cover" />}
-            </div>
+            <Avatar src={teacher.profilePicture} name={teacher.name} size={64} className="w-16 h-16" />
             <div>
               <h1 className="text-2xl font-bold">{teacher.name}</h1>
               {teacher.avgRating != null && (
