@@ -40,6 +40,16 @@ export async function POST(req: Request) {
       );
     }
 
+    // 0) Datum-Check: frühestens morgen buchbar
+    const todayMidnight = new Date();
+    todayMidnight.setHours(23, 59, 59, 999);
+    if (startDate <= todayMidnight) {
+      return NextResponse.json(
+        { error: "Buchungen sind frühestens für morgen möglich." },
+        { status: 400 }
+      );
+    }
+
     // 1) Teacher muss existieren
     const teacher = await prisma.teacher.findUnique({
       where: { id: teacherId },

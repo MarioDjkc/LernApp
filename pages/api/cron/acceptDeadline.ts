@@ -11,6 +11,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const now = new Date();
     const cutoff = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
 
+    // ── 1. Auto-cancel: unaccepted bookings whose lesson time has already passed ──
+    const pastUnaccepted = await prisma.booking.findMany({
+      where: {
+        start: { lt: now },
+        status: { in: ["pending", "checkout_started", "payment_method_saved"] },
+      },
+      include: {
+        student: { select: { email: true, name: true } },
+        teacher: { select: { name: true } },
+      },
+    });
+
+    for (const booking of pastUnaccepted) {
+      if (booking.stripePaymentMethodId) {
+        await stripe.paymentMethods.detach(booking.stripePaymentMethodId).catch(() => null);
+      }
+      if (booking.student?.email) {
+        await sendMail(
+          booking.student.email,
+          "Dein Termin wurde automatisch abgelehnt",
+          `<h2>Dein Nachhilfetermin wurde automatisch storniert</h2>
+           <p>Hallo ${booking.student.name || ""},</p>
+           <p>Dein Terminwunsch bei <b>${booking.teacher?.name || "deinem Lehrer"}</b> wurde vom Lehrer nicht rechtzeitig angenommen und wurde daher automatisch storniert.</p>
+           <p>Deine Zahlungsdaten wurden vollständig aus unserem System gelöscht.</p>
+           <p>Bitte buche einen neuen Termin.</p>
+           <p>Viele Grüße,<br/>dein LernApp-Team</p>`
+        ).catch((err) => console.error("Mail error for", booking.student?.email, err));
+      }
+    }
+
+    const pastCanceled = await prisma.booking.updateMany({
+      where: {
+        start: { lt: now },
+        status: { in: ["pending", "checkout_started", "payment_method_saved"] },
+      },
+      data: {
+        status: "canceled_by_system",
+        stripePaymentMethodId: null,
+        stripeCustomerId: null,
+        stripeSetupIntentId: null,
+      },
+    });
+
+    // ── 2. Auto-cancel: bookings older than 6 days with no action ──
     const expired = await prisma.booking.findMany({
       where: {
         createdAt: { lt: cutoff },
@@ -59,8 +103,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     res.json({
       success: true,
-      message: `${updated.count} bookings canceled.`,
-      canceledBookings: expired.map((b) => b.id),
+      message: `${pastCanceled.count} past-unaccepted canceled, ${updated.count} expired canceled.`,
+      canceledBookings: [...pastUnaccepted.map((b) => b.id), ...expired.map((b) => b.id)],
     });
   } catch (err: any) {
     logError("pages/api/cron/acceptDeadline", err).catch(() => {});

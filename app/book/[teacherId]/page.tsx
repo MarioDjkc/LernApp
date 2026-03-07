@@ -127,7 +127,7 @@ function CalendarPicker({
     d.setHours(0, 0, 0, 0);
     const iso = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
 
-    if (d < today) return "past";
+    if (d <= today) return "past";
     if (iso === value) return "selected";
 
     // Check weekly schedule
