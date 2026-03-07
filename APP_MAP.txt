@@ -105,17 +105,24 @@
     -> view all received ratings (stars + comments) with average score
        GET /api/ratings?teacherId=...
 
-  3b. Set Unavailability (Blocked Date Ranges)
-  ---------------------------------------------
+  3b. Set Availability & Unavailability
+  --------------------------------------
   /teacher/availability
-    -> teacher is assumed available every day by default
-    -> enters date ranges when NOT available (e.g. vacation, illness):
-       from date, to date, optional note
+
+  Weekly schedule:
+    -> toggle Mon–Sun on/off, set fromTime / toTime per day
+    -> defaults auto-saved on first visit: Mon–Fri 09:00–18:00 active, Sat/Sun off
+    -> GET/PUT /api/teacher/weekly-schedule
+    -> student booking page shows which days/times are available (green/red calendar)
+    -> students cannot book outside the teacher's scheduled hours
+
+  Blocked date ranges (vacation, illness, etc.):
+    -> enters from date, to date, optional note
     -> POST /api/teacher/unavailability
        -> creates TeacherUnavailability record (fromDate, toDate, note)
     -> can delete a period:
        DELETE /api/teacher/unavailability/:id
-    -> blocked dates are visible to students on /book (day picker greys out blocked days)
+    -> blocked dates shown as red/unavailable on student booking calendar
 
 
 ================================================================================
@@ -305,22 +312,53 @@
 
 
 ================================================================================
-  7. PAYOUT FLOW (future / partially implemented)
+  7. TEACHER PAYOUT FLOW
 ================================================================================
 
-  /api/cron/payouts  (must be triggered by external scheduler)
-    -> finds Bookings with status="paid" where lesson ended >15 days ago
-    -> for each: transfers 60% of priceCents to teacher's Stripe Connect account
-    -> updates Booking status to "teacher_paid"
+  Revenue split: student pays 100% -> platform keeps 40%, teacher earns 60%.
 
-  NOTE: Teacher.stripeAccountId is NOT yet in the Prisma schema.
-  Teacher Stripe Connect onboarding endpoints exist in pages/api/teacher/:
-    - create-connect-account  -> creates Stripe Connect account
-    - onboarding-link         -> Stripe onboarding URL
-    - connect-balance         -> Connect account balance
-    - bank-payout             -> initiate bank payout
-    - platform-balance        -> platform-level balance
-    - status                  -> Connect account verification status
+  Teacher earnings only count once the lesson has been held (booking.end < now).
+
+  7a. Stripe Connect Onboarding
+  ------------------------------
+  /teacher/payments  (Auszahlung section)
+    -> if no Stripe account connected: shows "Stripe-Konto verbinden" button
+    -> POST /api/teacher/stripe-connect
+       -> creates Stripe Express account (type: "express") if none exists
+       -> stores stripeConnectAccountId on Teacher record
+       -> returns Stripe-hosted onboarding URL
+    -> teacher completes onboarding on Stripe's site
+    -> Stripe redirects back to /teacher/payments?stripeReturn=1
+    -> GET /api/teacher/stripe-connect
+       -> checks live Stripe account: charges_enabled + payouts_enabled
+       -> if both true: sets Teacher.stripeConnectOnboarded = true
+
+  7b. Payout Request
+  -------------------
+  /teacher/payments  (Auszahlung section – requires stripeConnectOnboarded=true)
+    -> shows: Verdient gesamt / Ausgezahlt / Verfügbar
+    -> "Auszahlen" button (disabled if availableCents = 0)
+    -> POST /api/teacher/payout
+       -> earnedCents  = sum of floor(priceCents * 0.6) for all paid bookings
+                         where booking.end < now
+       -> paidOutCents = sum of all TeacherPayout.amountCents
+       -> availableCents = earnedCents - paidOutCents
+       -> calls stripe.transfers.create({ amount, currency: "eur",
+                                          destination: stripeConnectAccountId })
+       -> creates TeacherPayout record (amountCents, stripeTransferId)
+       -> teacher receives money in their Express account;
+          Stripe auto-pays out to bank (default: every 2 days)
+
+  7c. Balance / History
+  ----------------------
+  GET /api/teacher/payout
+    -> returns earnedCents, paidOutCents, availableCents, payouts[]
+    -> loaded on /teacher/payments page alongside booking list
+
+  DB models involved:
+    Teacher.stripeConnectAccountId  String?
+    Teacher.stripeConnectOnboarded  Boolean
+    TeacherPayout { id, teacherId, amountCents, stripeTransferId, createdAt }
 
 
 ================================================================================
@@ -351,7 +389,8 @@
     |   paid                          (card charged, student emailed,
     |                                  chat room created or reused)
     v
-  teacher_paid                        (60% transferred to teacher, cron job)
+  paid + end < now                    (lesson completed; 60% becomes available
+                                       for teacher to withdraw via payout button)
 
 
 ================================================================================
@@ -374,9 +413,10 @@
   /student/chat              Student: chat with teachers
   /student/profile           Student: manage profile picture, name, address
   /teacher/dashboard         Teacher: calendar + booking management
-  /teacher/availability      Teacher: manage unavailability periods
+  /teacher/availability      Teacher: manage weekly schedule + unavailability periods
   /teacher/subjects          Teacher: manage teaching offers
   /teacher/chat              Teacher: chat with students
+  /teacher/payments          Teacher: booking list, 60% earnings, Stripe Connect, payout
   /teacher/profile           Teacher: manage profile picture, description, address; view ratings
   /teacher/set-password      Teacher: first-time password setup via token link
   /teacher/chat/:chatId      Teacher: individual chat (alternate route)
@@ -412,6 +452,10 @@
   DELETE /api/teacher/unavailability/:id  Delete unavailability period
   GET/PATCH /api/teacher/profile      Get/update teacher profile (name, address, description, avgRating)
   POST /api/teacher/profile/picture   Upload teacher profile picture (multipart, saves to /public/uploads/profiles/)
+  GET/PUT  /api/teacher/weekly-schedule  Get/upsert teacher's weekly availability schedule (Mon–Sun, fromTime, toTime, active)
+  GET/POST /api/teacher/stripe-connect   Get Connect account status / create Express account + onboarding link
+  GET/POST /api/teacher/payout           Get balance info + payout history / trigger Stripe Transfer to Connect account
+  GET      /api/teacher/payments         Get all bookings for logged-in teacher (for payments tab)
   GET/PATCH /api/student/profile      Get/update student profile (name, address)
   POST /api/student/profile/picture   Upload student profile picture (multipart)
   GET/POST /api/teacher/chat          Teacher chat list / create chat
