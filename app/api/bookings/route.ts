@@ -2,6 +2,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
 import { logError } from "@/app/lib/logError";
+import { rateLimit } from "@/lib/rateLimit";
+import nodemailer from "nodemailer";
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
 
 export const runtime = "nodejs";
 
@@ -10,6 +14,12 @@ function isValidISODateTime(value: string) {
 }
 
 export async function POST(req: Request) {
+  // Rate limit: max 10 booking attempts per IP per 10 minutes
+  const ip = req.headers.get("x-forwarded-for") ?? "unknown";
+  if (!rateLimit(`booking:${ip}`, 10, 10 * 60 * 1000)) {
+    return NextResponse.json({ error: "Zu viele Anfragen. Bitte warte kurz." }, { status: 429 });
+  }
+
   try {
     const body = await req.json();
 
@@ -40,7 +50,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // 0) Datum-Check: frühestens morgen buchbar
+    // 0a) Mindestdauer: 30 Minuten
+    const startMs = new Date(start).getTime();
+    const endMs   = new Date(end).getTime();
+    if (endMs - startMs < 30 * 60 * 1000) {
+      return NextResponse.json(
+        { error: "Die Buchung muss mindestens 30 Minuten dauern." },
+        { status: 400 }
+      );
+    }
+
+    // 0b) Datum-Check: frühestens morgen buchbar
     const todayMidnight = new Date();
     todayMidnight.setHours(23, 59, 59, 999);
     if (new Date(start) <= todayMidnight) {
@@ -108,17 +128,33 @@ export async function POST(req: Request) {
     }
 
     // 4) Student finden oder anlegen
+    const existingUser = await prisma.user.findUnique({ where: { email: studentEmail }, select: { id: true } });
+
     const student = await prisma.user.upsert({
       where: { email: studentEmail },
       update: { name: studentName ?? undefined },
       create: {
         email: studentEmail,
-        password: "TEMP_PASSWORD_CHANGE_ME",
+        password: await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10),
         name: studentName ?? null,
         role: "student",
       },
       select: { id: true, email: true },
     });
+
+    if (!existingUser) {
+      // Generate a password reset token so the new student can set their own password
+      const resetToken = crypto.randomBytes(32).toString("hex");
+      await prisma.userPasswordResetToken.create({
+        data: {
+          token: resetToken,
+          userId: student.id,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        },
+      });
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+      sendWelcomeMail(studentEmail, studentName ?? "", `${baseUrl}/student/set-password?token=${resetToken}`).catch(() => {});
+    }
 
     // 5) Preis berechnen: 33 € pro Stunde
     const durationMinutes = (endDate.getTime() - startDate.getTime()) / 60_000;
@@ -154,4 +190,26 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }
+}
+
+async function sendWelcomeMail(to: string, name: string, setPasswordUrl: string) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT),
+    secure: true,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  });
+  await transporter.sendMail({
+    from: process.env.FROM_EMAIL,
+    to,
+    subject: "Willkommen bei LernApp – Passwort festlegen",
+    html: `
+      <h2>Willkommen bei LernApp${name ? `, ${name}` : ""}!</h2>
+      <p>Du hast soeben eine Buchung bei uns erstellt. Wir haben automatisch ein Konto für dich angelegt.</p>
+      <p>Bitte lege dein Passwort fest, um dich einzuloggen und deine Buchungen zu verwalten:</p>
+      <p><a href="${setPasswordUrl}" style="background:#2563eb;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin:10px 0">Passwort festlegen</a></p>
+      <p>Dieser Link ist 7 Tage gültig.</p>
+      <p>Viele Grüße,<br/>dein LernApp-Team</p>
+    `,
+  });
 }

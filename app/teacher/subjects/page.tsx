@@ -367,7 +367,11 @@ export default function TeacherSubjectsPage() {
 
         {/* Formular */}
         <div className="bg-white rounded-2xl border shadow-sm p-5 mb-8">
-          <h2 className="font-semibold mb-4">Neues Angebot hinzufügen</h2>
+          <h2 className="font-semibold mb-1">Neues Angebot hinzufügen</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Du kannst nur Fächer auswählen, die in deinem Profil hinterlegt sind. Wenn du weitere Fächer anbieten möchtest,{" "}
+            <a href="mailto:support@lernapp.example" className="text-blue-600 underline">melde dich bei uns</a>.
+          </p>
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>

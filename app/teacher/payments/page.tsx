@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TEACHER_SHARE } from "@/lib/constants";
 
 type Student = { id: string; name: string | null; email: string };
 
@@ -33,8 +34,6 @@ type PayoutInfo = {
   payouts: Payout[];
 };
 
-const TEACHER_SHARE = 0.6;
-
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending:              { label: "Ausstehend",             color: "text-yellow-700 bg-yellow-50 border-yellow-200" },
   checkout_started:     { label: "Zahlung läuft",          color: "text-orange-700 bg-orange-50 border-orange-200" },
@@ -44,6 +43,8 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   paid:                 { label: "Bezahlt",                color: "text-green-700 bg-green-50 border-green-200" },
   declined:             { label: "Abgelehnt",              color: "text-red-700 bg-red-50 border-red-200" },
   teacher_cancelled:    { label: "Abgesagt",               color: "text-red-700 bg-red-50 border-red-200" },
+  student_cancelled:    { label: "Vom Schüler storniert",  color: "text-gray-600 bg-gray-50 border-gray-200" },
+  canceled_by_system:   { label: "Automatisch storniert",  color: "text-gray-600 bg-gray-50 border-gray-200" },
   payment_failed:       { label: "Zahlung fehlgeschlagen", color: "text-red-700 bg-red-50 border-red-200" },
 };
 

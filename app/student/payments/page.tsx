@@ -27,12 +27,16 @@ type Rating = {
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending:           { label: "Ausstehend",             color: "text-yellow-600 bg-yellow-50 border-yellow-200" },
-  checkout_started:  { label: "Zahlung abgebrochen",     color: "text-orange-600 bg-orange-50 border-orange-200" },
-  confirmed:         { label: "Bestätigt",              color: "text-blue-600 bg-blue-50 border-blue-200" },
-  paid:              { label: "Bezahlt",                color: "text-green-600 bg-green-50 border-green-200" },
-  teacher_cancelled: { label: "Abgesagt (Lehrer)",      color: "text-red-600 bg-red-50 border-red-200" },
-  payment_failed:    { label: "Zahlung fehlgeschlagen", color: "text-red-600 bg-red-50 border-red-200" },
+  pending:              { label: "Ausstehend",              color: "text-yellow-600 bg-yellow-50 border-yellow-200" },
+  checkout_started:     { label: "Zahlung abgebrochen",     color: "text-orange-600 bg-orange-50 border-orange-200" },
+  payment_method_saved: { label: "Warte auf Bestätigung",   color: "text-blue-600 bg-blue-50 border-blue-200" },
+  confirmed:            { label: "Bestätigt",               color: "text-blue-600 bg-blue-50 border-blue-200" },
+  paid:                 { label: "Bezahlt",                 color: "text-green-600 bg-green-50 border-green-200" },
+  declined:             { label: "Abgelehnt",               color: "text-red-600 bg-red-50 border-red-200" },
+  teacher_cancelled:    { label: "Abgesagt (Lehrer)",       color: "text-red-600 bg-red-50 border-red-200" },
+  student_cancelled:    { label: "Von dir storniert",       color: "text-gray-600 bg-gray-50 border-gray-200" },
+  canceled_by_system:   { label: "Automatisch storniert",   color: "text-gray-600 bg-gray-50 border-gray-200" },
+  payment_failed:       { label: "Zahlung fehlgeschlagen",  color: "text-red-600 bg-red-50 border-red-200" },
 };
 
 function formatDate(iso: string) {
@@ -133,8 +137,9 @@ function PaymentsContent() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
-  const [payingId, setPayingId] = useState<string | null>(null);
-  const [ratings, setRatings]   = useState<Rating[]>([]);
+  const [payingId, setPayingId]       = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [ratings, setRatings]         = useState<Rating[]>([]);
 
   const successBookingId = searchParams.get("booking");
   const wasSuccess   = searchParams.get("success") === "1";
@@ -186,6 +191,23 @@ function PaymentsContent() {
     }
   }
 
+  async function handleCancel(bookingId: string) {
+    if (!confirm("Buchung wirklich stornieren?")) return;
+    setCancellingId(bookingId);
+    try {
+      const res = await fetch(`/api/student/bookings/${bookingId}/cancel`, { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Fehler beim Stornieren");
+      setBookings((prev) =>
+        prev.map((b) => b.id === bookingId ? { ...b, status: "student_cancelled" } : b)
+      );
+    } catch (e: any) {
+      setError(e?.message ?? "Stornierung fehlgeschlagen");
+    } finally {
+      setCancellingId(null);
+    }
+  }
+
   function handleRatingSaved(r: Rating) {
     setRatings((prev) => {
       const without = prev.filter((x) => x.teacherId !== r.teacherId);
@@ -224,6 +246,7 @@ function PaymentsContent() {
           {bookings.map((b) => {
             const statusInfo = STATUS_LABELS[b.status] ?? { label: b.status, color: "text-gray-600 bg-gray-50 border-gray-200" };
             const canPay = b.status === "pending";
+            const canCancel = ["pending", "checkout_started", "payment_method_saved"].includes(b.status);
             const isPaid = b.status === "paid";
 
             // Show rating form only on the first paid booking per teacher
@@ -258,6 +281,15 @@ function PaymentsContent() {
                         className="mt-1 rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
                       >
                         {payingId === b.id ? "Weiterleitung..." : "Jetzt zahlen"}
+                      </button>
+                    )}
+                    {canCancel && (
+                      <button
+                        onClick={() => handleCancel(b.id)}
+                        disabled={cancellingId === b.id}
+                        className="mt-1 rounded-lg border border-red-300 px-4 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {cancellingId === b.id ? "Storniere..." : "Stornieren"}
                       </button>
                     )}
                   </div>

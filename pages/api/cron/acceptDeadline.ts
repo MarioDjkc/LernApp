@@ -108,9 +108,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
+    // ── 3. Reminder emails: paid bookings starting in the next 24 hours ──
+    const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const upcoming = await prisma.booking.findMany({
+      where: {
+        status: "paid",
+        start: { gt: now, lte: in24h },
+      },
+      include: {
+        student: { select: { email: true, name: true } },
+        teacher: { select: { email: true, name: true } },
+      },
+    });
+
+    for (const booking of upcoming) {
+      const startStr = new Date(booking.start).toLocaleString("de-AT");
+      if (booking.student?.email) {
+        sendMail(
+          booking.student.email,
+          "Erinnerung: Deine Nachhilfestunde morgen",
+          `<h2>Erinnerung an deinen Termin</h2>
+           <p>Hallo ${booking.student.name || ""},</p>
+           <p>Deine Nachhilfestunde bei <b>${booking.teacher?.name || "deinem Lehrer"}</b> findet morgen am <b>${startStr}</b> statt.</p>
+           <p>Viele Grüße,<br/>dein LernApp-Team</p>`
+        ).catch(() => {});
+      }
+      if (booking.teacher?.email) {
+        sendMail(
+          booking.teacher.email,
+          "Erinnerung: Nachhilfestunde morgen",
+          `<h2>Erinnerung an deinen Termin</h2>
+           <p>Hallo ${booking.teacher.name || ""},</p>
+           <p>Deine Nachhilfestunde mit <b>${booking.student?.name || "einem Schüler"}</b> findet morgen am <b>${startStr}</b> statt.</p>
+           <p>Viele Grüße,<br/>dein LernApp-Team</p>`
+        ).catch(() => {});
+      }
+    }
+
+    // ── 4. Delete error logs older than 90 days (DSGVO promise) ──
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const deletedLogs = await prisma.errorLog.deleteMany({
+      where: { createdAt: { lt: ninetyDaysAgo } },
+    });
+
     res.json({
       success: true,
-      message: `${pastCanceled.count} past-unaccepted canceled, ${updated.count} expired canceled.`,
+      message: `${pastCanceled.count} past-unaccepted canceled, ${updated.count} expired canceled, ${upcoming.length} reminders sent, ${deletedLogs.count} error logs deleted.`,
       canceledBookings: [...pastUnaccepted.map((b) => b.id), ...expired.map((b) => b.id)],
     });
   } catch (err: any) {

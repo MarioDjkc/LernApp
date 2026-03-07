@@ -21,11 +21,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "file fehlt" }, { status: 400 });
     }
 
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-    const allowed = ["jpg", "jpeg", "png", "webp", "gif"];
-    if (!allowed.includes(ext)) {
-      return NextResponse.json({ error: "Nur Bilder erlaubt (jpg, png, webp)" }, { status: 400 });
+    const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+    if (file.size > MAX_SIZE) {
+      return NextResponse.json({ error: "Datei zu groß. Maximal 5 MB erlaubt." }, { status: 400 });
     }
+
+    const allowedMime = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedMime.includes(file.type)) {
+      return NextResponse.json({ error: "Nur Bilder erlaubt (jpg, png, webp, gif)" }, { status: 400 });
+    }
+
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
 
     const user = await prisma.user.findUnique({
       where: { email: session.email },

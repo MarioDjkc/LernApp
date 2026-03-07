@@ -15,11 +15,6 @@ export default function TeacherLoginPage() {
     e.preventDefault();
     setError(null);
 
-    if (localStorage.getItem("cookie_consent") !== "accepted") {
-      setError("Bitte akzeptiere zuerst die Cookie-Richtlinie.");
-      return;
-    }
-
     setLoading(true);
 
     const res = await signIn("teacher-credentials", {

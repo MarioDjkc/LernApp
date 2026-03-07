@@ -114,6 +114,16 @@ export default function TeacherDashboard() {
   // ------------------------------------------------------------------
   // TERMIN ABLEHNEN (Karte wird gelöscht, Schüler wird informiert)
   // ------------------------------------------------------------------
+  async function cancelPaidBooking(bookingId: string) {
+    if (!confirm("Bezahlte Stunde stornieren? Der Betrag wird automatisch zurückerstattet.")) return;
+    const res = await fetch(`/api/teacher/bookings/${bookingId}/cancel`, { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert("Fehler: " + (data?.error || res.status));
+    }
+    loadBookings();
+  }
+
   async function declineBooking(bookingId: string) {
     const res = await fetch("/api/bookings/decline", {
       method: "POST",
@@ -187,6 +197,7 @@ export default function TeacherDashboard() {
       "fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4";
 
     const canAct = booking.status === "payment_method_saved";
+    const canCancelPaid = booking.status === "paid";
 
     dialog.innerHTML = `
       <div class="bg-white p-6 rounded-xl max-w-md w-full">
@@ -221,6 +232,13 @@ export default function TeacherDashboard() {
             Ablehnen
           </button>
         </div>
+        ` : canCancelPaid ? `
+        <div style="margin-top:16px;">
+          <button id="cancelPaidBtn" style="width:100%;padding:10px;background:#dc2626;color:white;border-radius:8px;font-weight:600;">
+            Stornieren &amp; Rückerstattung
+          </button>
+          <p style="margin-top:6px;font-size:12px;color:#64748b;text-align:center;">Der gezahlte Betrag wird dem Schüler vollständig zurückerstattet.</p>
+        </div>
         ` : `
         <div style="margin-top:16px; padding:10px; background:#f1f5f9; border-radius:8px; text-align:center; color:#64748b;">
           Status: ${escapeHtml(statusLabel(booking.status))}
@@ -244,6 +262,13 @@ export default function TeacherDashboard() {
       dialog.querySelector("#declineBtn")!.onclick = async () => {
         await declineBooking(booking.id);
         dialog.remove();
+      };
+    }
+
+    if (canCancelPaid) {
+      dialog.querySelector("#cancelPaidBtn")!.onclick = async () => {
+        dialog.remove();
+        await cancelPaidBooking(booking.id);
       };
     }
 

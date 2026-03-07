@@ -1,6 +1,8 @@
 // pages/api/bookings/confirm.ts
 // Lehrer bestätigt den Termin → Karte wird belastet
 import type { NextApiRequest, NextApiResponse } from "next";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import { prisma } from "../../../lib/prisma";
 import { stripe } from "../../../lib/stripe";
 import nodemailer from "nodemailer";
@@ -12,16 +14,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { bookingId } = req.body;
   if (!bookingId) return res.status(400).json({ error: "bookingId fehlt" });
 
+  // Auth: only the teacher who owns the booking may confirm it
+  const session = await getServerSession(req, res, authOptions);
+  if (!session?.user?.email || (session.user as any).role !== "teacher") {
+    return res.status(401).json({ error: "Nicht eingeloggt." });
+  }
+
   try {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
         student: { select: { email: true, name: true } },
-        teacher: { select: { name: true } },
+        teacher: { select: { name: true, email: true } },
       },
     });
 
     if (!booking) return res.status(404).json({ error: "Booking nicht gefunden" });
+
+    if (booking.teacher?.email !== session.user.email) {
+      return res.status(403).json({ error: "Keine Berechtigung." });
+    }
 
     if (booking.status !== "payment_method_saved") {
       return res.status(400).json({ error: "Zahlungsmethode noch nicht gespeichert." });

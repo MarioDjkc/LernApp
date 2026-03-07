@@ -172,7 +172,7 @@ export default function Home() {
               <li>Mathematik</li>
               <li>Englisch</li>
               <li>Biologie</li>
-              <li>Physik</li>
+              <li>und vieles mehr!</li>
             </ul>
           </div>
           <div>
@@ -195,7 +195,6 @@ export default function Home() {
             <div className="font-semibold mb-2">Kontakt</div>
             <ul className="space-y-1 text-gray-600">
               <li>support@lernapp.example</li>
-              <li>+43 660 000000</li>
               <li>Mo–Fr 9–17 Uhr</li>
             </ul>
           </div>

@@ -20,8 +20,8 @@ export default function DatenschutzPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-2">1. Verantwortlicher</h2>
             <p>
               Verantwortlicher im Sinne der DSGVO für den Betrieb dieser Plattform ist:<br />
-              <strong>LernApp</strong><br />
-              E-Mail: support@lernapp.example<br />
+              <strong>LernApp e.U.</strong><br />
+              E-Mail: <a href="mailto:office@lernapp.at" className="text-blue-600 underline">office@lernapp.at</a><br />
               Österreich
             </p>
           </section>
@@ -45,7 +45,7 @@ export default function DatenschutzPage() {
               <li><strong>Profildaten:</strong> Name, E-Mail-Adresse, Passwort (verschlüsselt), Fächer, Schulform, Adresse, Profilbeschreibung</li>
               <li><strong>Profilbild:</strong> Freiwillig hochgeladenes Foto, gespeichert auf unseren Servern</li>
               <li><strong>Verfügbarkeitsdaten:</strong> Wochenplan und Abwesenheitszeiträume</li>
-              <li><strong>Stripe Connect-Daten:</strong> Für Auszahlungen verbinden Lehrkräfte ihr Stripe Express-Konto. Dabei übermittelt Stripe Bankdaten und ggf. Identitätsdaten direkt an Stripe. Wir speichern lediglich die Stripe Account-ID.</li>
+              <li><strong>Stripe Connect-Daten:</strong> Für Auszahlungen verbinden Lehrkräfte ihr Stripe Express-Konto. Wir speichern lediglich die Stripe Account-ID. Bankdaten und Identitätsdaten werden direkt an Stripe übermittelt und dort verarbeitet.</li>
               <li><strong>Kommunikationsdaten:</strong> Nachrichten im Chat mit Schülerinnen und Schülern</li>
             </ul>
 
@@ -57,47 +57,59 @@ export default function DatenschutzPage() {
 
             <p className="mt-3 font-medium text-gray-800">Technische Daten</p>
             <ul className="list-disc ml-5 mt-1 space-y-1">
-              <li><strong>Session-Cookies:</strong> Für den sicheren Login von Schülerinnen/Schülern und Lehrkräften</li>
+              <li><strong>Session-Cookies:</strong> Für den sicheren Login von Schülerinnen/Schülern und Lehrkräften (technisch notwendig, kein Einverständnis erforderlich)</li>
               <li><strong>Admin-Cookie:</strong> Für den Zugang zum Administrationsbereich (HttpOnly, 24 Stunden gültig)</li>
-              <li><strong>Fehler-Logs:</strong> Bei technischen Fehlern werden anonymisierte Fehlermeldungen (Dateipfad, Fehlercode, Fehlertext, Zeitstempel) in der Datenbank gespeichert, ausschließlich zur Fehlerbehebung</li>
+              <li><strong>Fehler-Logs:</strong> Bei technischen Fehlern werden Fehlermeldungen (Dateipfad, Fehlercode, Fehlertext, Zeitstempel) in der Datenbank gespeichert, ausschließlich zur Fehlerbehebung</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">3. Cookies</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">3. Minderjährige</h2>
             <p>
-              Diese Website verwendet ausschließlich technisch notwendige Cookies, die für den Betrieb
-              der Plattform erforderlich sind:
+              Die Nutzung der Plattform ist Personen ab 14 Jahren gestattet. Für Personen unter
+              14 Jahren ist die ausdrückliche Zustimmung eines Erziehungsberechtigten erforderlich
+              (Art. 8 DSGVO i.V.m. §&nbsp;4 Abs.&nbsp;4 DSG). Wir erheben wissentlich keine Daten
+              von Kindern unter 14 Jahren ohne Zustimmung der Erziehungsberechtigten. Sollten wir
+              feststellen, dass uns Daten einer Person unter 14 Jahren ohne entsprechende Einwilligung
+              vorliegen, werden diese umgehend gelöscht.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">4. Cookies</h2>
+            <p>
+              Diese Website verwendet <strong>ausschließlich technisch notwendige Cookies</strong>,
+              die für den Betrieb der Plattform erforderlich sind. Für technisch notwendige Cookies
+              ist nach §&nbsp;165 Abs.&nbsp;3 TKG 2021 keine Einwilligung erforderlich.
             </p>
             <ul className="list-disc ml-5 mt-2 space-y-1">
               <li>
                 <strong>Session-Cookie (next-auth.session-token):</strong> Speichert die Login-Sitzung
-                sicher als verschlüsseltes JWT. Wird beim Abmelden gelöscht.
+                sicher als verschlüsseltes JWT. Wird beim Abmelden automatisch gelöscht.
               </li>
               <li>
                 <strong>Admin-Cookie (admin_auth):</strong> Speichert die Administratoren-Sitzung
                 als HttpOnly-Cookie. Gültig für 24 Stunden.
               </li>
               <li>
-                <strong>Cookie-Einwilligung (cookie_consent):</strong> Speichert deine Entscheidung zur
-                Cookie-Nutzung lokal in deinem Browser (localStorage). Kein Server-Zugriff.
+                <strong>Cookie-Hinweis (cookie_notice):</strong> Speichert, ob der Cookie-Hinweis
+                bereits angezeigt wurde (localStorage, kein Server-Zugriff, kein Tracking).
               </li>
             </ul>
             <p className="mt-2">
-              Wir verwenden keine Tracking-, Analyse- oder Werbe-Cookies. Du kannst deine
-              Cookie-Einstellungen jederzeit über das Cookie-Symbol unten rechts ändern.
+              Wir verwenden keine Tracking-, Analyse- oder Werbe-Cookies.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">4. Zweck der Verarbeitung</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">5. Zweck der Verarbeitung</h2>
             <ul className="list-disc ml-5 space-y-1">
               <li>Bereitstellung und Betrieb der Nachhilfeplattform</li>
               <li>Durchführung und Abrechnung von Buchungen</li>
               <li>Auszahlung von Vergütungen an Lehrkräfte über Stripe Connect</li>
               <li>Sichere Authentifizierung (Login/Logout)</li>
               <li>Kommunikation zwischen Schülerinnen/Schülern und Lehrkräften</li>
-              <li>Versand von Buchungsbestätigungen und Benachrichtigungen per E-Mail</li>
+              <li>Versand von Buchungsbestätigungen, Erinnerungen und Benachrichtigungen per E-Mail</li>
               <li>Bearbeitung von Lehrkraft-Bewerbungen</li>
               <li>Anzeige von Bewertungen zur Qualitätssicherung</li>
               <li>Technische Fehlerbehebung und Plattformsicherheit</li>
@@ -105,21 +117,18 @@ export default function DatenschutzPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">5. Rechtsgrundlage</h2>
-            <p>
-              Die Verarbeitung erfolgt auf folgenden Rechtsgrundlagen:
-            </p>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">6. Rechtsgrundlage</h2>
             <ul className="list-disc ml-5 mt-2 space-y-1">
-              <li><strong>Art. 6 Abs. 1 lit. b DSGVO</strong> – Vertragserfüllung (Buchungen, Zahlungen, Auszahlungen)</li>
-              <li><strong>Art. 6 Abs. 1 lit. c DSGVO</strong> – Erfüllung rechtlicher Verpflichtungen (z.B. Aufbewahrungsfristen)</li>
-              <li><strong>Art. 6 Abs. 1 lit. f DSGVO</strong> – Berechtigtes Interesse am sicheren Betrieb der Plattform und Fehlerbehebung</li>
-              <li><strong>Art. 6 Abs. 1 lit. a DSGVO</strong> – Einwilligung (Profilbild-Upload, Cookie-Einwilligung)</li>
-              <li><strong>§ 165 Abs. 3 TKG 2021</strong> – Technisch notwendige Cookies</li>
+              <li><strong>Art. 6 Abs. 1 lit. b DSGVO</strong> – Vertragserfüllung (Buchungen, Zahlungen, Auszahlungen, Chat)</li>
+              <li><strong>Art. 6 Abs. 1 lit. c DSGVO</strong> – Erfüllung rechtlicher Verpflichtungen (z.B. gesetzliche Aufbewahrungsfristen für Buchungsdaten)</li>
+              <li><strong>Art. 6 Abs. 1 lit. f DSGVO</strong> – Berechtigtes Interesse am sicheren Betrieb der Plattform und Fehlerbehebung (Fehler-Logs)</li>
+              <li><strong>Art. 6 Abs. 1 lit. a DSGVO</strong> – Einwilligung (Profilbild-Upload, freiwillige Angaben)</li>
+              <li><strong>§ 165 Abs. 3 TKG 2021</strong> – Technisch notwendige Cookies (keine Einwilligung erforderlich)</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">6. Drittanbieter</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">7. Drittanbieter</h2>
 
             <p className="font-medium text-gray-800 mt-2">Stripe (Zahlungsabwicklung &amp; Auszahlungen)</p>
             <p className="mt-1">
@@ -128,8 +137,7 @@ export default function DatenschutzPage() {
               Stripe verarbeitet Zahlungs- und Bankdaten gemäß eigener Datenschutzerklärung:{" "}
               <a href="https://stripe.com/de/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
                 stripe.com/de/privacy
-              </a>. Eine Datenübermittlung erfolgt nur soweit zur Zahlungsabwicklung und Auszahlung notwendig.
-              Lehrkräfte, die Stripe Connect nutzen, akzeptieren zusätzlich die{" "}
+              </a>. Lehrkräfte, die Stripe Connect nutzen, akzeptieren zusätzlich die{" "}
               <a href="https://stripe.com/de/connect-account/legal" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
                 Stripe Connected Account Agreement
               </a>.
@@ -137,45 +145,78 @@ export default function DatenschutzPage() {
 
             <p className="font-medium text-gray-800 mt-4">E-Mail-Versand (SMTP)</p>
             <p className="mt-1">
-              Für den Versand von transaktionalen E-Mails (Buchungsbestätigungen, Passwort-Reset-Links,
-              Bewerbungsbenachrichtigungen) verwenden wir einen SMTP-Dienst. Dabei werden E-Mail-Adresse
-              und Nachrichteninhalt zur Zustellung übermittelt. Es erfolgt keine Weitergabe an Dritte
-              zu Werbezwecken.
+              Für den Versand von transaktionalen E-Mails (Buchungsbestätigungen, Erinnerungen,
+              Passwort-Reset-Links, Bewerbungsbenachrichtigungen) verwenden wir einen SMTP-Dienst.
+              Dabei werden E-Mail-Adresse und Nachrichteninhalt zur Zustellung übermittelt. Es
+              erfolgt keine Weitergabe an Dritte zu Werbezwecken.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">7. Speicherdauer</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">8. Speicherdauer</h2>
             <ul className="list-disc ml-5 space-y-1">
-              <li><strong>Nutzerdaten:</strong> Werden gespeichert, solange das Konto aktiv ist. Nach Löschung des Kontos werden alle personenbezogenen Daten entfernt.</li>
-              <li><strong>Buchungsdaten:</strong> Werden für die Dauer gesetzlicher Aufbewahrungsfristen (7 Jahre gemäß UGB) gespeichert.</li>
-              <li><strong>Bewerbungsdaten:</strong> Werden nach Abschluss des Bewerbungsverfahrens gelöscht, spätestens nach 6 Monaten.</li>
-              <li><strong>Chat-Nachrichten:</strong> Werden gespeichert, solange das Nutzerkonto aktiv ist.</li>
-              <li><strong>Fehler-Logs:</strong> Werden nach spätestens 90 Tagen automatisch gelöscht.</li>
-              <li><strong>Profilbilder &amp; hochgeladene Dateien:</strong> Werden bei Kontolöschung entfernt.</li>
+              <li>
+                <strong>Nutzerdaten (Profil, Schuldaten, Profilbild):</strong> Werden gespeichert,
+                solange das Konto aktiv ist. Nach Löschung des Kontos werden alle personenbezogenen
+                Profildaten entfernt.
+              </li>
+              <li>
+                <strong>Buchungsdaten (bezahlte Buchungen):</strong> Buchungsdatensätze mit
+                Zahlungsbezug werden gemäß der gesetzlichen Aufbewahrungspflicht nach
+                §&nbsp;212&nbsp;UGB <strong>7 Jahre</strong> aufbewahrt. Eine Löschung des Kontos
+                führt zur Anonymisierung dieser Datensätze, nicht zu deren Löschung. Stripe bewahrt
+                Zahlungsbelege unabhängig davon ebenfalls gemäß gesetzlicher Vorgaben auf.
+              </li>
+              <li>
+                <strong>Nicht bezahlte oder stornierte Buchungen:</strong> Werden bei Kontolöschung
+                entfernt.
+              </li>
+              <li>
+                <strong>Bewerbungsdaten:</strong> Werden nach Abschluss des Bewerbungsverfahrens
+                gelöscht, spätestens nach 6 Monaten.
+              </li>
+              <li>
+                <strong>Chat-Nachrichten:</strong> Werden gespeichert, solange das Nutzerkonto
+                aktiv ist. Bei Kontolöschung werden Chat-Nachrichten entfernt.
+              </li>
+              <li>
+                <strong>Fehler-Logs:</strong> Werden nach spätestens 90 Tagen automatisch gelöscht.
+              </li>
+              <li>
+                <strong>Profilbilder &amp; hochgeladene Dateien:</strong> Werden bei Kontolöschung
+                entfernt.
+              </li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">8. Deine Rechte</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">9. Deine Rechte</h2>
             <p>Du hast folgende Rechte gemäß DSGVO:</p>
             <ul className="list-disc ml-5 mt-2 space-y-1">
               <li>Auskunft über gespeicherte Daten (Art. 15 DSGVO)</li>
               <li>Berichtigung unrichtiger Daten (Art. 16 DSGVO)</li>
-              <li>Löschung deiner Daten (Art. 17 DSGVO)</li>
+              <li>Löschung deiner Daten (Art. 17 DSGVO) – soweit keine gesetzlichen Aufbewahrungspflichten entgegenstehen</li>
               <li>Einschränkung der Verarbeitung (Art. 18 DSGVO)</li>
               <li>Datenübertragbarkeit (Art. 20 DSGVO)</li>
               <li>Widerspruch gegen die Verarbeitung (Art. 21 DSGVO)</li>
               <li>Widerruf einer erteilten Einwilligung jederzeit mit Wirkung für die Zukunft (Art. 7 Abs. 3 DSGVO)</li>
-              <li>Beschwerde bei der österreichischen Datenschutzbehörde: <a href="https://www.dsb.gv.at" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">dsb.gv.at</a></li>
+              <li>
+                Beschwerde bei der österreichischen Datenschutzbehörde:{" "}
+                <a href="https://www.dsb.gv.at" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                  dsb.gv.at
+                </a>
+              </li>
             </ul>
             <p className="mt-2">
-              Für Anfragen wende dich an: <strong>support@lernapp.example</strong>
+              Für Anfragen wende dich an:{" "}
+              <a href="mailto:office@lernapp.at" className="text-blue-600 underline">
+                office@lernapp.at
+              </a>
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">9. Änderungen</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">10. Änderungen</h2>
             <p>
               Wir behalten uns vor, diese Datenschutzerklärung bei Bedarf zu aktualisieren.
               Die aktuelle Version ist stets auf dieser Seite abrufbar. Bei wesentlichen Änderungen

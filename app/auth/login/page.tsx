@@ -12,12 +12,6 @@ export default function StudentLoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-
-    if (localStorage.getItem("cookie_consent") !== "accepted") {
-      setError("Bitte akzeptiere zuerst die Cookie-Richtlinie.");
-      return;
-    }
-
     setLoading(true);
 
     const result = await signIn("student-credentials", {
@@ -88,7 +82,13 @@ export default function StudentLoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-600 mt-4">
+        <p className="text-center text-sm text-gray-500 mt-3">
+          <a href="/student/forgot-password" className="text-indigo-600 hover:underline">
+            Passwort vergessen?
+          </a>
+        </p>
+
+        <p className="text-center text-sm text-gray-600 mt-2">
           Lehrer?{" "}
           <a
             href="/teacher/login"

@@ -5,11 +5,17 @@ import { promises as fs } from "fs";
 import path from "path";
 import nodemailer from "nodemailer";
 import { logError } from "@/app/lib/logError";
+import { rateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+    if (!rateLimit(`apply:${ip}`, 3, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: "Zu viele Anfragen. Bitte versuche es später erneut." }, { status: 429 });
+    }
+
     const form = await req.formData();
     const name = String(form.get("name") || "");
     const email = String(form.get("email") || "");
@@ -31,6 +37,14 @@ export async function POST(req: Request) {
     // ✅ Datei speichern (optional)
     let filePath: string | null = null;
     if (file && file.size > 0) {
+      const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+      if (file.size > MAX_SIZE) {
+        return NextResponse.json({ error: "Datei zu groß. Maximal 10 MB erlaubt." }, { status: 400 });
+      }
+      if (file.type !== "application/pdf") {
+        return NextResponse.json({ error: "Nur PDF-Dateien erlaubt." }, { status: 400 });
+      }
+
       const bytes = Buffer.from(await file.arrayBuffer());
       const uploadDir = path.join(process.cwd(), "public", "uploads");
       await fs.mkdir(uploadDir, { recursive: true });

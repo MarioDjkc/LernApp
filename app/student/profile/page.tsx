@@ -42,7 +42,8 @@ export default function StudentProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]   = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
@@ -102,6 +103,19 @@ export default function StudentProfilePage() {
     const json = await res.json().catch(() => ({}));
     setMsg(res.ok ? "Gespeichert." : json?.error ?? "Fehler");
     setSaving(false);
+  }
+
+  async function deleteAccount() {
+    if (!confirm("Konto wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.")) return;
+    setDeleting(true);
+    const res = await fetch("/api/student/account", { method: "DELETE" });
+    if (res.ok) {
+      window.location.href = "/auth/login";
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setMsg(json?.error ?? "Fehler beim Löschen.");
+      setDeleting(false);
+    }
   }
 
   async function uploadPicture(file: File) {
@@ -265,6 +279,21 @@ export default function StudentProfilePage() {
           className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold disabled:opacity-60"
         >
           {saving ? "Speichern..." : "Speichern"}
+        </button>
+      </div>
+
+      {/* Konto löschen */}
+      <div className="mt-8 bg-white rounded-2xl border border-red-200 shadow-sm p-6">
+        <h2 className="font-semibold text-lg text-red-700 mb-1">Konto löschen</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Dein Konto und alle damit verbundenen Daten werden unwiderruflich gelöscht.
+        </p>
+        <button
+          onClick={deleteAccount}
+          disabled={deleting}
+          className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg font-semibold disabled:opacity-60"
+        >
+          {deleting ? "Löschen..." : "Konto löschen"}
         </button>
       </div>
     </main>

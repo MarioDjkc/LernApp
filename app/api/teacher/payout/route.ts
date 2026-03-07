@@ -4,10 +4,9 @@ import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import prisma from "@/app/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { logError } from "@/app/lib/logError";
+import { TEACHER_SHARE } from "@/lib/constants";
 
 export const runtime = "nodejs";
-
-const TEACHER_SHARE = 0.6;
 
 // GET — returns balance info and payout history
 export async function GET() {
