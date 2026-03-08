@@ -162,11 +162,15 @@ export default function AgbPage() {
           <h2 className="text-lg font-semibold mb-2">11. &Auml;nderungen der AGB</h2>
           <p className="text-gray-700 leading-relaxed">
             Der Plattformbetreiber beh&auml;lt sich vor, diese AGB bei sachlichem Grund zu
-            &auml;ndern. &Auml;nderungen werden Nutzern per E-Mail mitgeteilt. Wesentliche
+            &auml;ndern. Wesentliche &Auml;nderungen werden registrierten Nutzern
+            <strong> mindestens 2 Monate vor Inkrafttreten</strong> per E-Mail mitgeteilt
+            (gem&auml;&szlig; &sect;&nbsp;6 Abs.&nbsp;1 Z&nbsp;2 KSchG). Wesentliche
             &Auml;nderungen treten erst in Kraft, wenn der Nutzer diesen beim n&auml;chsten
             Login ausdr&uuml;cklich zustimmt. Stimmt ein Nutzer ge&auml;nderten AGB nicht zu,
-            steht es ihm frei, sein Konto zu l&ouml;schen. Bis zur Zustimmung oder L&ouml;schung
-            gelten die bisherigen AGB fort.
+            hat er das Recht, seinen Vertrag bis zum Inkrafttreten der &Auml;nderungen
+            kostenfrei zu beenden und sein Konto zu l&ouml;schen. Bis zur Zustimmung oder
+            Beendigung gelten die bisherigen AGB fort. Nicht wesentliche, rein redaktionelle
+            Korrekturen k&ouml;nnen ohne Vorankündigung vorgenommen werden.
           </p>
         </section>
 

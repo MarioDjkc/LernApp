@@ -132,6 +132,79 @@ function RatingForm({ teacherId, teacherName, existing, onSaved }: {
   );
 }
 
+// FAGG §4 pre-contractual disclosure shown before Stripe checkout
+function CheckoutDisclosureModal({
+  booking,
+  onConfirm,
+  onCancel,
+}: {
+  booking: Booking;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const price = (booking.priceCents / 100).toFixed(2);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+        <h2 className="text-lg font-bold text-gray-900">Vor der Zahlung – Pflichtinformation</h2>
+        <p className="text-sm text-gray-600">
+          Bitte lies die folgenden Informationen, bevor du zur Zahlung weitergeleitet wirst
+          (gem&auml;&szlig; &sect;&nbsp;4 FAGG):
+        </p>
+
+        <div className="text-sm text-gray-700 space-y-2 border border-gray-200 rounded-xl p-4 bg-gray-50">
+          <p><strong>Leistung:</strong> Nachhilfestunde bei {booking.teacher.name} ({booking.teacher.subject})</p>
+          <p>
+            <strong>Termin:</strong>{" "}
+            {new Date(booking.start).toLocaleDateString("de-AT", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })},{" "}
+            {new Date(booking.start).toLocaleTimeString("de-AT", { hour: "2-digit", minute: "2-digit" })}
+            {" "}–{" "}
+            {new Date(booking.end).toLocaleTimeString("de-AT", { hour: "2-digit", minute: "2-digit" })}
+          </p>
+          <p><strong>Gesamtpreis (Endpreis):</strong> {price} {booking.currency.toUpperCase()}</p>
+          <p>
+            <strong>Anbieter:</strong> LernApp e.U., E-Mail:{" "}
+            <a href="mailto:office@lernapp.at" className="text-blue-600 underline">office@lernapp.at</a>
+          </p>
+        </div>
+
+        <div className="text-sm text-gray-700 border border-amber-200 rounded-xl p-4 bg-amber-50 space-y-1">
+          <p className="font-semibold text-amber-800">Widerrufsrecht (§ 11 FAGG)</p>
+          <p>
+            Du hast das Recht, binnen <strong>14 Tagen</strong> ohne Angabe von Gründen vom
+            Vertrag zurückzutreten. Mit Bestätigung der Zahlung erklärst du dich ausdrücklich
+            damit einverstanden, dass LernApp mit der Erbringung der Dienstleistung vor Ablauf
+            der Widerrufsfrist beginnt. Du bestätigst, dass dein Widerrufsrecht mit vollständiger
+            Erbringung der Dienstleistung erlischt.
+          </p>
+          <p>
+            Widerruf per E-Mail an:{" "}
+            <a href="mailto:office@lernapp.at" className="text-blue-600 underline">office@lernapp.at</a>.
+            Das{" "}
+            <a href="/agb#widerruf" className="text-blue-600 underline">Muster-Widerrufsformular</a>{" "}
+            findest du in unseren AGB.
+          </p>
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <button
+            onClick={onCancel}
+            className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Abbrechen
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 text-sm font-semibold"
+          >
+            Weiter zur Zahlung
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PaymentsContent() {
   const searchParams = useSearchParams();
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -140,6 +213,7 @@ function PaymentsContent() {
   const [payingId, setPayingId]       = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [ratings, setRatings]         = useState<Rating[]>([]);
+  const [disclosureBooking, setDisclosureBooking] = useState<Booking | null>(null);
 
   const successBookingId = searchParams.get("booking");
   const wasSuccess   = searchParams.get("success") === "1";
@@ -178,7 +252,14 @@ function PaymentsContent() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function handlePay(bookingId: string) {
+  // Show FAGG pre-contractual disclosure first, then proceed
+  function handlePay(bookingId: string) {
+    const booking = bookings.find((b) => b.id === bookingId);
+    if (booking) setDisclosureBooking(booking);
+  }
+
+  async function proceedToCheckout(bookingId: string) {
+    setDisclosureBooking(null);
     setPayingId(bookingId);
     try {
       const res  = await fetch("/api/student/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bookingId }) });
@@ -219,6 +300,14 @@ function PaymentsContent() {
   const ratedTeacherIds = new Set<string>();
 
   return (
+    <>
+    {disclosureBooking && (
+      <CheckoutDisclosureModal
+        booking={disclosureBooking}
+        onConfirm={() => proceedToCheckout(disclosureBooking.id)}
+        onCancel={() => setDisclosureBooking(null)}
+      />
+    )}
     <main className="min-h-screen bg-[#f3f5fb] px-6 py-10">
       <div className="max-w-3xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">Payments</h1>
@@ -309,6 +398,7 @@ function PaymentsContent() {
         </div>
       </div>
     </main>
+    </>
   );
 }
 

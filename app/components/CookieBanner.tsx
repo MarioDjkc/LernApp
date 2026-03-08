@@ -37,12 +37,20 @@ export default function CookieBanner() {
             .
           </p>
         </div>
-        <button
-          onClick={dismiss}
-          className="shrink-0 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition"
-        >
-          Verstanden
-        </button>
+        <div className="flex shrink-0 gap-2">
+          <button
+            onClick={dismiss}
+            className="px-5 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700 text-sm font-semibold transition"
+          >
+            Schließen
+          </button>
+          <button
+            onClick={dismiss}
+            className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition"
+          >
+            Verstanden
+          </button>
+        </div>
       </div>
     </div>
   );

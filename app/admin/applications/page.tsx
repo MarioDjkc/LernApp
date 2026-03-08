@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
 type Application = {
   id: string;
@@ -14,6 +13,7 @@ type Application = {
   levelPref: string | null;
   schoolForms: string | null;
   createdAt: string;
+  status: string;
 };
 
 const FORM_LABELS: Record<string, string> = {
@@ -39,11 +39,44 @@ function levelLabel(v: string | null) {
   return "—";
 }
 
+function StatusBadge({ status }: { status: string }) {
+  if (status === "new") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300">
+        Neu
+      </span>
+    );
+  }
+  if (status === "contract_sent") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-300">
+        Vertrag verschickt
+      </span>
+    );
+  }
+  if (status === "active") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-300">
+        Aktiv
+      </span>
+    );
+  }
+  if (status === "rejected") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-300">
+        Abgelehnt
+      </span>
+    );
+  }
+  return null;
+}
+
 export default function AdminApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -67,6 +100,34 @@ export default function AdminApplicationsPage() {
     load();
   }
 
+  async function handleSendContract(id: string) {
+    setActionLoadingId(id + "_send");
+    try {
+      const res = await fetch(`/api/admin/applications/${id}/send-contract`, { method: "POST" });
+      if (!res.ok) {
+        const json = await res.json();
+        alert("Fehler: " + (json.error ?? "Unbekannter Fehler"));
+      }
+    } finally {
+      setActionLoadingId(null);
+      load();
+    }
+  }
+
+  async function handleConfirmContract(id: string) {
+    setActionLoadingId(id + "_confirm");
+    try {
+      const res = await fetch(`/api/admin/applications/${id}/confirm-contract`, { method: "POST" });
+      if (!res.ok) {
+        const json = await res.json();
+        alert("Fehler: " + (json.error ?? "Unbekannter Fehler"));
+      }
+    } finally {
+      setActionLoadingId(null);
+      load();
+    }
+  }
+
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
@@ -74,12 +135,6 @@ export default function AdminApplicationsPage() {
           <h1 className="text-2xl font-bold">Bewerbungen</h1>
           <p className="text-sm text-gray-500 mt-0.5">{applications.length} gesamt</p>
         </div>
-        <Link
-          href="/admin/teachers/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700"
-        >
-          + Lehrer daraus anlegen
-        </Link>
       </div>
 
       {loading && <p className="text-gray-400">Lade...</p>}
@@ -93,7 +148,10 @@ export default function AdminApplicationsPage() {
             {/* HEADER */}
             <div className="flex items-center justify-between px-5 py-4">
               <div>
-                <div className="font-semibold text-base">{a.name}</div>
+                <div className="flex items-center gap-2">
+                  <div className="font-semibold text-base">{a.name}</div>
+                  <StatusBadge status={a.status} />
+                </div>
                 <div className="text-sm text-gray-500">{a.email}</div>
                 {a.subject && (
                   <div className="text-xs text-blue-600 mt-0.5">Fach: {a.subject}</div>
@@ -102,7 +160,7 @@ export default function AdminApplicationsPage() {
                   {trackLabel(a.schoolTrack)} · {levelLabel(a.levelPref)}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap justify-end">
                 <span className="text-xs text-gray-400">
                   {new Date(a.createdAt).toLocaleDateString("de-AT")}
                 </span>
@@ -114,7 +172,7 @@ export default function AdminApplicationsPage() {
                 </button>
                 {a.filePath && (
                   <a
-                    href={a.filePath}
+                    href={"/api/admin/applications/file?name=" + encodeURIComponent(a.filePath)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-green-600 hover:underline"
@@ -122,6 +180,41 @@ export default function AdminApplicationsPage() {
                     PDF
                   </a>
                 )}
+
+                {/* Action buttons based on status */}
+                {a.status === "new" && (
+                  <button
+                    onClick={() => handleSendContract(a.id)}
+                    disabled={actionLoadingId === a.id + "_send"}
+                    className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-40"
+                  >
+                    {actionLoadingId === a.id + "_send" ? "Sende..." : "Vertrag senden"}
+                  </button>
+                )}
+
+                {a.status === "contract_sent" && (
+                  <>
+                    <button
+                      onClick={() => handleConfirmContract(a.id)}
+                      disabled={actionLoadingId === a.id + "_confirm"}
+                      className="text-sm bg-green-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-40"
+                    >
+                      {actionLoadingId === a.id + "_confirm" ? "Aktiviere..." : "Vertrag bestätigt → Aktivieren"}
+                    </button>
+                    <button
+                      onClick={() => handleSendContract(a.id)}
+                      disabled={actionLoadingId === a.id + "_send"}
+                      className="text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-gray-200 disabled:opacity-40 border border-gray-300"
+                    >
+                      {actionLoadingId === a.id + "_send" ? "Sende..." : "Erneut senden"}
+                    </button>
+                  </>
+                )}
+
+                {a.status === "active" && (
+                  <span className="text-sm text-green-600 font-semibold">Aktiv</span>
+                )}
+
                 <button
                   onClick={() => handleDelete(a.id, a.name)}
                   disabled={deletingId === a.id}
@@ -156,14 +249,6 @@ export default function AdminApplicationsPage() {
                     );
                   } catch { return null; }
                 })()}
-                <div className="mt-4">
-                  <Link
-                    href={`/admin/teachers/new?email=${encodeURIComponent(a.email)}&name=${encodeURIComponent(a.name)}&subject=${encodeURIComponent(a.subject ?? "")}&schoolTrack=${encodeURIComponent(a.schoolTrack ?? "BOTH")}&levelPref=${encodeURIComponent(a.levelPref ?? "BOTH")}&schoolForms=${encodeURIComponent(a.schoolForms ?? "")}`}
-                    className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700"
-                  >
-                    Als Lehrer anlegen
-                  </Link>
-                </div>
               </div>
             )}
           </div>

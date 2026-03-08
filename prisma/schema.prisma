@@ -275,6 +275,7 @@ model TeacherApplication {
   levelPref   String?  // UNTERSTUFE / OBERSTUFE / BOTH
   schoolForms String?  // JSON-Array z.B. ["AHS_GYMNASIUM","BHS_HTL"]
   createdAt   DateTime @default(now())
+  status      String   @default("new")  // new | contract_sent | active | rejected
 }
 
 model PasswordResetToken {

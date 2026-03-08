@@ -46,11 +46,12 @@ export async function POST(req: Request) {
       }
 
       const bytes = Buffer.from(await file.arrayBuffer());
-      const uploadDir = path.join(process.cwd(), "public", "uploads");
+      // Store outside public/ to prevent unauthenticated access (DSGVO Art. 5, 32)
+      const uploadDir = path.join(process.cwd(), "private-uploads");
       await fs.mkdir(uploadDir, { recursive: true });
 
       const safeName = `${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
-      filePath = `/uploads/${safeName}`;
+      filePath = safeName; // store only the filename; served via /api/admin/applications/file
       await fs.writeFile(path.join(uploadDir, safeName), bytes);
     }
 
@@ -87,7 +88,7 @@ export async function POST(req: Request) {
         <p><b>Motivation:</b><br>${letter}</p>
         ${
           filePath
-            ? `<p><b>Datei:</b> <a href="${baseUrl}${filePath}">PDF ansehen</a></p>`
+            ? `<p><b>Datei:</b> <a href="${baseUrl}/api/admin/applications/file?name=${encodeURIComponent(filePath)}">PDF ansehen (Admin-Login erforderlich)</a></p>`
             : "<p><b>Datei:</b> keine hochgeladen</p>"
         }
       `,
