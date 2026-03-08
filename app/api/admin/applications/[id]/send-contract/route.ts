@@ -20,7 +20,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   // Read the contract HTML file
-  const contractPath = path.join(process.cwd(), "contracts", "Lehrervertrag-LernApp.html");
+  const contractPath = path.join(process.cwd(), "contracts", "Lehrervertrag-LernApp.pdf");
   let contractHtml = await fs.readFile(contractPath, "utf-8");
 
   // Replace Name placeholder in Auftragnehmer party box
