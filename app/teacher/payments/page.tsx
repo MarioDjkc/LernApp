@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TEACHER_SHARE } from "@/lib/constants";
 
 type Student = { id: string; name: string | null; email: string };
 
@@ -60,7 +59,7 @@ function formatEur(cents: number) {
   return (cents / 100).toFixed(2) + " EUR";
 }
 
-function calcStats(bookings: Booking[]) {
+function calcStats(bookings: Booking[], teacherShare: number) {
   const now = new Date();
   const total = bookings.length;
   const paidCount = bookings.filter((b) => b.status === "paid").length;
@@ -74,12 +73,13 @@ function calcStats(bookings: Booking[]) {
   // Only lessons that are paid AND already finished count as earned
   const completedRevenueCents = bookings
     .filter((b) => b.status === "paid" && new Date(b.end) < now)
-    .reduce((sum, b) => sum + Math.floor(b.priceCents * TEACHER_SHARE), 0);
+    .reduce((sum, b) => sum + Math.floor(b.priceCents * teacherShare), 0);
 
   return { total, paidCount, pendingCount, failedCount, completedRevenueCents };
 }
 
 export default function TeacherPaymentsPage() {
+  const [settings, setSettings] = useState<{ teacherShare: number }>({ teacherShare: 0.7 });
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [payoutInfo, setPayoutInfo] = useState<PayoutInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,14 +94,19 @@ export default function TeacherPaymentsPage() {
   async function load() {
     setLoading(true);
     try {
-      const [bookingsRes, payoutRes] = await Promise.all([
+      const [bookingsRes, payoutRes, settingsRes] = await Promise.all([
         fetch("/api/teacher/payments", { cache: "no-store" }),
         fetch("/api/teacher/payout", { cache: "no-store" }),
+        fetch("/api/settings", { cache: "no-store" }),
       ]);
       const bookingsJson = await bookingsRes.json().catch(() => ({}));
       const payoutJson = await payoutRes.json().catch(() => ({}));
+      const settingsJson = await settingsRes.json().catch(() => ({}));
       setBookings(bookingsJson.bookings ?? []);
       if (payoutRes.ok) setPayoutInfo(payoutJson);
+      if (settingsRes.ok && typeof settingsJson.teacherShare === "number") {
+        setSettings({ teacherShare: settingsJson.teacherShare });
+      }
     } catch {
       setError("Daten konnten nicht geladen werden.");
     } finally {
@@ -142,7 +147,7 @@ export default function TeacherPaymentsPage() {
     }
   }
 
-  const stats = calcStats(bookings);
+  const stats = calcStats(bookings, settings.teacherShare);
 
   const filtered = bookings.filter((b) => {
     if (filter === "paid") return b.status === "paid";
@@ -296,7 +301,7 @@ export default function TeacherPaymentsPage() {
             color: "text-gray-600 bg-gray-50 border-gray-200",
           };
           const isCompleted = b.status === "paid" && new Date(b.end) < now;
-          const teacherShare = Math.floor(b.priceCents * TEACHER_SHARE);
+          const teacherShare = Math.floor(b.priceCents * settings.teacherShare);
 
           return (
             <div

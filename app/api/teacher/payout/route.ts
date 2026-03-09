@@ -4,7 +4,7 @@ import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import prisma from "@/app/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { logError } from "@/app/lib/logError";
-import { TEACHER_SHARE } from "@/lib/constants";
+import { getPlatformSettings } from "@/app/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -38,8 +38,9 @@ export async function GET() {
       select: { priceCents: true },
     });
 
+    const { teacherShare } = await getPlatformSettings();
     const earnedCents = completedBookings.reduce(
-      (sum, b) => sum + Math.floor(b.priceCents * TEACHER_SHARE),
+      (sum, b) => sum + Math.floor(b.priceCents * teacherShare),
       0
     );
 
@@ -92,8 +93,9 @@ export async function POST() {
       select: { priceCents: true },
     });
 
+    const { teacherShare } = await getPlatformSettings();
     const earnedCents = completedBookings.reduce(
-      (sum, b) => sum + Math.floor(b.priceCents * TEACHER_SHARE),
+      (sum, b) => sum + Math.floor(b.priceCents * teacherShare),
       0
     );
     const paidOutCents = teacher.payouts.reduce((sum, p) => sum + p.amountCents, 0);

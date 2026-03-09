@@ -42,6 +42,7 @@ const SUBJECT_CHIPS: string[] = [
 export default function StudentDashboardPage() {
   const { data: session, status } = useSession();
 
+  const [settings, setSettings] = useState({ priceMin: 25, priceMax: 45, priceN: 15, teacherShare: 0.7 });
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +88,14 @@ export default function StudentDashboardPage() {
   useEffect(() => {
     if (status === "authenticated") {
       loadTeachers();
+      fetch("/api/settings", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((s) => {
+          if (s && typeof s.priceMin === "number") {
+            setSettings({ priceMin: s.priceMin, priceMax: s.priceMax, priceN: s.priceN, teacherShare: s.teacherShare });
+          }
+        })
+        .catch(() => {});
     }
   }, [status]);
 
@@ -191,7 +200,7 @@ export default function StudentDashboardPage() {
                   href={`/book/${t.id}`}
                   className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition"
                 >
-                  Termin vereinbaren – {calcHourlyPrice(t.ratingCount, t.avgRating ?? null).toFixed(2).replace(".", ",")} €/h
+                  Termin vereinbaren – {calcHourlyPrice(t.ratingCount, t.avgRating ?? null, settings.priceMin, settings.priceMax, settings.priceN).toFixed(2).replace(".", ",")} €/h
                 </Link>
               </article>
             ))}

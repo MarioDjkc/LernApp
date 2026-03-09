@@ -337,3 +337,20 @@ model ChatMessage {
   @@index([chatId])
   @@index([createdAt])
 }
+
+model PlatformSettings {
+  id           String   @id @default("default")
+  priceMin     Float    @default(25)
+  priceMax     Float    @default(45)
+  priceN       Float    @default(15)
+  teacherShare Float    @default(0.70)
+
+  // Geplante Änderungen (werden aktiv sobald pendingEffectiveFrom <= now)
+  pendingPriceMin      Float?
+  pendingPriceMax      Float?
+  pendingPriceN        Float?
+  pendingTeacherShare  Float?
+  pendingEffectiveFrom DateTime?
+
+  updatedAt    DateTime @updatedAt
+}

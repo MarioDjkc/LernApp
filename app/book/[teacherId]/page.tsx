@@ -237,8 +237,21 @@ export default function BookPage() {
   const [ratingMsg,        setRatingMsg]        = useState<string | null>(null);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
 
+  const [settings, setSettings] = useState({ priceMin: 25, priceMax: 45, priceN: 15, teacherShare: 0.7 });
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
+
+  // Load platform settings
+  useEffect(() => {
+    fetch("/api/settings", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((s) => {
+        if (s && typeof s.priceMin === "number") {
+          setSettings({ priceMin: s.priceMin, priceMax: s.priceMax, priceN: s.priceN, teacherShare: s.teacherShare });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Pre-fill from session
   useEffect(() => {
@@ -327,8 +340,8 @@ export default function BookPage() {
   }, [teacher]);
   const hours    = useMemo(() => calcHours(startTime, endTime), [startTime, endTime]);
   const hourlyPrice = useMemo(
-    () => calcHourlyPrice(teacher?.ratingCount ?? 0, teacher?.avgRating ?? null),
-    [teacher]
+    () => calcHourlyPrice(teacher?.ratingCount ?? 0, teacher?.avgRating ?? null, settings.priceMin, settings.priceMax, settings.priceN),
+    [teacher, settings]
   );
   const priceCents   = Math.round(hours * hourlyPrice * 100);
   const priceFormatted = (priceCents / 100).toFixed(2).replace(".", ",");

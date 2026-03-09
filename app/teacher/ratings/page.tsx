@@ -2,10 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { calcHourlyPrice } from "@/app/lib/pricing";
-import { TEACHER_SHARE } from "@/lib/constants";
-
-const MIN_PRICE = 25;
-const MAX_PRICE = 45;
 
 type Rating = {
   id: string;
@@ -24,6 +20,7 @@ function StarRow({ stars }: { stars: number }) {
 }
 
 export default function TeacherRatingsPage() {
+  const [settings, setSettings] = useState({ priceMin: 25, priceMax: 45, priceN: 15, teacherShare: 0.7 });
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [avg, setAvg] = useState<number | null>(null);
   const [count, setCount] = useState(0);
@@ -31,24 +28,29 @@ export default function TeacherRatingsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/teacher/ratings", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((data) => {
+    Promise.all([
+      fetch("/api/teacher/ratings", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/settings", { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
+    ])
+      .then(([data, s]) => {
         if (!data.ok) throw new Error(data.error ?? "Fehler");
         setRatings(data.ratings ?? []);
         setAvg(data.avg ?? null);
         setCount(data.count ?? 0);
+        if (s && typeof s.priceMin === "number") {
+          setSettings({ priceMin: s.priceMin, priceMax: s.priceMax, priceN: s.priceN, teacherShare: s.teacherShare });
+        }
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
-  const hourlyPrice = calcHourlyPrice(count, avg);
-  const teacherWage = hourlyPrice * TEACHER_SHARE;
+  const hourlyPrice = calcHourlyPrice(count, avg, settings.priceMin, settings.priceMax, settings.priceN);
+  const teacherWage = hourlyPrice * settings.teacherShare;
 
   // Progress: wie weit zwischen MIN und MAX
   const progressPct = Math.round(
-    ((hourlyPrice - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * 100
+    ((hourlyPrice - settings.priceMin) / (settings.priceMax - settings.priceMin)) * 100
   );
 
   // Verteilung 1–5 Sterne
@@ -77,7 +79,7 @@ export default function TeacherRatingsPage() {
                   <span className="text-lg font-normal text-gray-500">/h</span>
                 </div>
                 <div className="text-sm text-gray-500 mt-1">
-                  70&nbsp;% von {hourlyPrice.toFixed(2).replace(".", ",")} €/h Schülerpreis
+                  {Math.round(settings.teacherShare * 100)}&nbsp;% von {hourlyPrice.toFixed(2).replace(".", ",")} €/h Schülerpreis
                 </div>
               </div>
               <div className="text-right text-sm text-gray-400">
@@ -91,8 +93,8 @@ export default function TeacherRatingsPage() {
             {/* Fortschrittsbalken */}
             <div>
               <div className="flex justify-between text-xs text-gray-400 mb-1">
-                <span>{(MIN_PRICE * TEACHER_SHARE).toFixed(2).replace(".", ",")} € (neu)</span>
-                <span>{(MAX_PRICE * TEACHER_SHARE).toFixed(2).replace(".", ",")} € (max)</span>
+                <span>{(settings.priceMin * settings.teacherShare).toFixed(2).replace(".", ",")} € (neu)</span>
+                <span>{(settings.priceMax * settings.teacherShare).toFixed(2).replace(".", ",")} € (max)</span>
               </div>
               <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden">
                 <div
