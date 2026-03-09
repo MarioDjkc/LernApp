@@ -124,7 +124,7 @@ export default function StudentDashboardPage() {
   // RENDER
   // ----------------------------------------------------
   return (
-    <main className="min-h-screen bg-[#f3f5fb] px-6 py-10">
+    <main className="min-h-screen bg-[#f3f5fb] px-4 md:px-6 py-6 md:py-10">
       <div className="max-w-6xl mx-auto">
 
         {/* HEADER */}

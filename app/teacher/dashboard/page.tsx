@@ -3,7 +3,6 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -277,30 +276,32 @@ export default function TeacherDashboard() {
 
   // ------------------------------------------------------------------
 
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
   return (
-    <main className="min-h-screen bg-gray-50 px-6 py-8">
+    <main className="min-h-screen bg-gray-50 px-4 md:px-6 py-6 md:py-8">
       <h1 className="text-2xl font-bold mb-4">Mein Kalender</h1>
 
-      {loading && <p>Lade Kalender…</p>}
-
-      {!loading && (
-        <FullCalendar
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView="timeGridWeek"
-          headerToolbar={{
-            left: "prev,next today",
-            center: "title",
-            right: "dayGridMonth,timeGridWeek,timeGridDay",
-          }}
-          events={events}
-          eventClick={onEventClick}
-          allDaySlot={false}
-          slotMinTime="08:00:00"
-          slotMaxTime="20:00:00"
-          nowIndicator
-          height="auto"
-        />
-      )}
+      <FullCalendar
+        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+        initialView={isMobile ? "timeGridDay" : "timeGridWeek"}
+        headerToolbar={isMobile ? {
+          left: "prev,next",
+          center: "title",
+          right: "timeGridDay,dayGridMonth",
+        } : {
+          left: "prev,next today",
+          center: "title",
+          right: "dayGridMonth,timeGridWeek,timeGridDay",
+        }}
+        events={events}
+        eventClick={onEventClick}
+        allDaySlot={false}
+        slotMinTime="08:00:00"
+        slotMaxTime="20:00:00"
+        nowIndicator
+        height="auto"
+      />
     </main>
   );
 }

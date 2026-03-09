@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import AuthModal from "./components/AuthModal";
 import ChatWhatsAppModal from "./components/ChatWidget";
@@ -8,16 +9,28 @@ import TeacherCarouselWrapper from "@/src/components/TeacherCarouselWrapper";
 import TeacherApplySection from "./components/TeacherApplySection";
 import type { Teacher } from "@/app/lib/types";
 
+type Rating = {
+  id: string;
+  stars: number;
+  comment: string | null;
+  studentName: string;
+  teacherSubject: string;
+};
+
 export default function Home() {
   const [showAuth, setShowAuth] = useState(false);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [ratings, setRatings] = useState<Rating[]>([]);
 
-  // 🔹 Nur 4 Beispiel-Lehrer zur Deko auf der Hauptseite
-  const teachers: Teacher[] = [
-    { id: "t1", name: "Anna Weber", subject: "Mathematik", rating: 5 },
-    { id: "t2", name: "Paul Schmidt", subject: "Englisch", rating: 5 },
-    { id: "t3", name: "Maria Fischer", subject: "Biologie", rating: 5 },
-    { id: "t4", name: "David Müller", subject: "Physik", rating: 5 },
-  ];
+  useEffect(() => {
+    fetch("/api/public/homepage")
+      .then((r) => r.json())
+      .then((data) => {
+        setTeachers(data.teachers ?? []);
+        setRatings(data.ratings ?? []);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <main className="min-h-screen">
@@ -25,38 +38,43 @@ export default function Home() {
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
 
       {/* 🔹 HERO */}
-      <section className="mx-auto max-w-6xl px-6 md:px-10 py-12 grid md:grid-cols-2 gap-10 items-center">
-        <div className="space-y-5">
-          <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+      <section className="relative w-full min-h-[480px] md:min-h-[580px] flex items-center overflow-hidden">
+        {/* Hintergrundbild */}
+        <Image
+          src="/homepage_background.png"
+          alt="Hintergrundbild"
+          fill
+          priority
+          className="object-cover object-center md:object-[center_30%]"
+          sizes="100vw"
+        />
+        {/* Dunkler Overlay für Lesbarkeit */}
+        <div className="absolute inset-0 bg-black/45" />
+
+        {/* Inhalt */}
+        <div className="relative z-10 mx-auto max-w-6xl w-full px-6 md:px-10 py-16 space-y-6">
+          <h1 className="text-4xl md:text-5xl font-bold leading-tight text-white drop-shadow">
             Nachhilfetermine
             <br /> einfach buchen
           </h1>
-          <p className="text-gray-600">
+          <p className="text-white/90 text-lg max-w-xl">
             Vereinbare online deine Einzelsitzung mit einer Nachhilfelehrerin
             oder einem Nachhilfelehrer deiner Wahl.
           </p>
 
-          {/* Buttons: Jetzt buchen + Lehrer-Login */}
           <div className="flex flex-wrap gap-3">
             <button
               onClick={() => setShowAuth(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold shadow"
             >
               Jetzt buchen
             </button>
-
             <Link
               href="/auth/teacher/login"
-              className="px-6 py-3 rounded-lg border border-blue-600 text-blue-600 font-semibold bg-white hover:bg-blue-50 transition"
+              className="px-6 py-3 rounded-lg border border-white text-white font-semibold hover:bg-white/10 transition"
             >
               Lehrer-Login
             </Link>
-          </div>
-        </div>
-
-        <div className="justify-self-end">
-          <div className="w-[320px] h-[360px] bg-gray-200 rounded-2xl shadow flex items-center justify-center text-gray-500">
-            Bild kommt später 📷
           </div>
         </div>
       </section>
@@ -102,57 +120,40 @@ export default function Home() {
       </section>
 
       {/* 🔹 TESTIMONIALS */}
-      <section className="bg-white border-t">
-        <div className="mx-auto max-w-6xl px-6 md:px-10 py-16">
-          <h2 className="text-3xl font-bold text-center mb-3">
-            Was unsere Nutzer sagen
-          </h2>
-          <p className="text-center text-gray-600 mb-10">
-            Echte Erfahrungen von Schülerinnen, Schülern und Eltern
-          </p>
+      {ratings.length > 0 && (
+        <section className="bg-white border-t">
+          <div className="mx-auto max-w-6xl px-6 md:px-10 py-16">
+            <h2 className="text-3xl font-bold text-center mb-3">
+              Was unsere Nutzer sagen
+            </h2>
+            <p className="text-center text-gray-600 mb-10">
+              Echte Erfahrungen von Schülerinnen, Schülern und Eltern
+            </p>
 
-          <div className="grid gap-8 md:grid-cols-3">
-            {[
-              {
-                name: "Lea K.",
-                role: "Schülerin (Mathe)",
-                text: "Ich habe endlich Mathe verstanden. Die Buchung war super einfach und meine Lehrerin war mega nett!",
-                stars: 5,
-              },
-              {
-                name: "Tim S.",
-                role: "Schüler (Englisch)",
-                text: "Die 1:1-Sitzungen haben mir geholfen, mein Englisch zu verbessern. Sehr flexible Zeiten!",
-                stars: 5,
-              },
-              {
-                name: "Sandra M.",
-                role: "Mutter",
-                text: "Transparente Buchung, freundliche Lehrerinnen und Lehrer und schnelle Terminbestätigung. Absolute Empfehlung.",
-                stars: 5,
-              },
-            ].map((t) => (
-              <div
-                key={t.name}
-                className="rounded-2xl border shadow-sm bg-white p-6 flex flex-col gap-4"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gray-200" />
-                  <div>
-                    <div className="font-semibold">{t.name}</div>
-                    <div className="text-sm text-gray-600">{t.role}</div>
+            <div className="grid gap-8 md:grid-cols-3">
+              {ratings.map((r) => (
+                <div
+                  key={r.id}
+                  className="rounded-2xl border shadow-sm bg-white p-6 flex flex-col gap-4"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-gray-200" />
+                    <div>
+                      <div className="font-semibold">{r.studentName}</div>
+                      <div className="text-sm text-gray-600">{r.teacherSubject}</div>
+                    </div>
+                  </div>
+                  <p className="text-gray-700 leading-relaxed">&ldquo;{r.comment}&rdquo;</p>
+                  <div className="text-yellow-400">
+                    {"★".repeat(r.stars)}
+                    {"☆".repeat(5 - r.stars)}
                   </div>
                 </div>
-                <p className="text-gray-700 leading-relaxed">“{t.text}”</p>
-                <div className="text-yellow-400">
-                  {"★".repeat(t.stars)}
-                  {"☆".repeat(5 - t.stars)}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* 🔹 LEHRER BEWERBUNG */}
       <TeacherApplySection />

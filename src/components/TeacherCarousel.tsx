@@ -1,79 +1,76 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import TeacherCard from "./TeacherCard";
 import type { Teacher } from "app/lib/types";
 
 export default function TeacherCarousel({ teachers }: { teachers: Teacher[] }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [canLeft, setCanLeft] = useState(false);
-  const [canRight, setCanRight] = useState(false);
+  const [active, setActive] = useState(0);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const update = () => {
-    const el = ref.current;
-    if (!el) return;
-    setCanLeft(el.scrollLeft > 0);
-    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-  };
-
+  // Auto-advance every 2 seconds
   useEffect(() => {
-    update();
-    const el = ref.current;
-    if (!el) return;
-    const onScroll = () => update();
-    el.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      el.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, []);
+    if (teachers.length < 2) return;
+    const id = setInterval(() => {
+      setActive((prev) => (prev + 1) % teachers.length);
+    }, 2000);
+    return () => clearInterval(id);
+  }, [teachers.length]);
 
-  const step = 320; // Scroll-Schritt (ungefähr Kartenbreite)
-  const scrollBy = (px: number) => ref.current?.scrollBy({ left: px, behavior: "smooth" });
+  // Scroll active card into center
+  useEffect(() => {
+    const card = cardRefs.current[active];
+    const container = containerRef.current;
+    if (!card || !container) return;
+    const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+    const scrollTo = cardCenter - container.clientWidth / 2;
+    container.scrollTo({ left: scrollTo, behavior: "smooth" });
+  }, [active]);
+
+  if (teachers.length === 0) return null;
 
   return (
-    <div className="relative mx-auto max-w-6xl">
-      {/* Fade-Edges (nur Desktop) */}
-      <div className="pointer-events-none hidden md:block absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-white to-transparent z-10" />
-      <div className="pointer-events-none hidden md:block absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-white to-transparent z-10" />
-
-      {/* Arrows (Desktop) */}
-      <button
-        onClick={() => scrollBy(-step)}
-        aria-label="Nach links"
-        className={`hidden md:flex absolute left-3 top-1/2 -translate-y-1/2 z-20
-                    h-11 w-11 items-center justify-center rounded-full
-                    bg-white shadow border transition
-                    ${canLeft ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-      >
-        ◀
-      </button>
-      <button
-        onClick={() => scrollBy(step)}
-        aria-label="Nach rechts"
-        className={`hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 z-20
-                    h-11 w-11 items-center justify-center rounded-full
-                    bg-white shadow border transition
-                    ${canRight ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-      >
-        ▶
-      </button>
+    <div className="relative mx-auto max-w-6xl overflow-hidden">
+      {/* Fade edges */}
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-white to-transparent z-10" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-white to-transparent z-10" />
 
       {/* Scroller */}
       <div
-        ref={ref}
-        className="no-scrollbar overflow-x-auto scroll-smooth snap-x snap-mandatory px-2 md:px-6"
+        ref={containerRef}
+        className="no-scrollbar overflow-x-auto scroll-smooth px-2 md:px-6"
       >
-        {/* Wrapper sorgt dafür, dass die Karten mittig stehen, wenn Inhalt < Viewport */}
-        <div className="min-w-full flex justify-center">
-          {/* Track wird nur so breit wie sein Inhalt */}
-          <div className="w-max flex gap-4 md:gap-6 py-3 md:py-4 items-stretch">
-            {teachers.map((t) => (
-              <TeacherCard key={t.id} teacher={t} />
-            ))}
-          </div>
+        <div className="flex items-center gap-4 md:gap-8 py-3 md:py-4">
+          <div className="shrink-0 w-[calc(50vw-140px)]" />
+          {teachers.map((t, i) => (
+            <div
+              key={t.id}
+              ref={(el) => { cardRefs.current[i] = el; }}
+              onClick={() => setActive(i)}
+              className={`shrink-0 transition-all duration-500 cursor-pointer ${
+                i === active ? "scale-110 z-10" : "scale-90 opacity-50"
+              }`}
+            >
+              <TeacherCard teacher={t} />
+            </div>
+          ))}
+          <div className="shrink-0 w-[calc(50vw-140px)]" />
         </div>
+      </div>
+
+      {/* Dots */}
+      <div className="flex justify-center gap-2 mt-4">
+        {teachers.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setActive(i)}
+            className={`w-2 h-2 rounded-full transition-all duration-300 ${
+              i === active ? "bg-blue-600 w-5" : "bg-gray-300"
+            }`}
+            aria-label={`Lehrer ${i + 1}`}
+          />
+        ))}
       </div>
     </div>
   );

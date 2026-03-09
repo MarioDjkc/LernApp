@@ -308,7 +308,7 @@ function PaymentsContent() {
         onCancel={() => setDisclosureBooking(null)}
       />
     )}
-    <main className="min-h-screen bg-[#f3f5fb] px-6 py-10">
+    <main className="min-h-screen bg-[#f3f5fb] px-4 md:px-6 py-6 md:py-10">
       <div className="max-w-3xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">Payments</h1>
 

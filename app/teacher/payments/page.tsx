@@ -159,7 +159,7 @@ export default function TeacherPaymentsPage() {
   const now = new Date();
 
   return (
-    <main className="min-h-screen bg-gray-50 px-6 py-8">
+    <main className="min-h-screen bg-gray-50 px-4 md:px-6 py-6 md:py-8">
       <h1 className="text-2xl font-bold mb-6">Payments</h1>
 
       {error && (
@@ -217,7 +217,7 @@ export default function TeacherPaymentsPage() {
         ) : (
           /* ── Stripe connected ── */
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
                 <div className="text-xs text-gray-500 mb-0.5">Verdient gesamt</div>
                 <div className="font-bold">{formatEur(payoutInfo.earnedCents)}</div>

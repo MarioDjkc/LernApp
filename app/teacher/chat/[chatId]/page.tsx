@@ -1,144 +1,230 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 
-export default function TeacherChatPage() {
-  const { chatId } = useParams();
+type ChatItem = {
+  id: string;
+  studentEmail: string;
+  studentName?: string | null;
+  subject?: string | null;
+};
+
+type Msg = {
+  id: string;
+  sender: "student" | "teacher" | "system";
+  text: string;
+  createdAt?: string;
+};
+
+export default function TeacherChatDetailPage() {
+  const { chatId } = useParams() as { chatId: string };
   const router = useRouter();
   const { data: session } = useSession();
 
-  const [chats, setChats] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [studentEmail, setStudentEmail] = useState("");
-  const [input, setInput] = useState("");
+  const [chats, setChats] = useState<ChatItem[]>([]);
+  const [showSidebar, setShowSidebar] = useState(false); // auf Mobile direkt den Chat zeigen
 
-  // -------------------
-  // LINKS: CHATLISTE LADEN
-  // -------------------
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [partnerEmail, setPartnerEmail] = useState("");
+  const [partnerName, setPartnerName] = useState("");
+  const [input, setInput] = useState("");
+  const [loadingChats, setLoadingChats] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  const lastMsgIdRef = useRef<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     if (!session?.user?.email) return;
-
-    async function loadChats() {
-      const res = await fetch(`/api/teacher/chat?email=${session.user.email}`);
-      const data = await res.json();
-      setChats(data.chats || []);
-    }
-
-    loadChats();
+    setLoadingChats(true);
+    fetch(`/api/teacher/chat?email=${session.user.email}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => setChats(data.chats || []))
+      .catch(() => {})
+      .finally(() => setLoadingChats(false));
   }, [session?.user?.email]);
 
-  // -------------------
-  // RECHTS: MESSAGES LADEN
-  // -------------------
-  async function loadMessages() {
-    const res = await fetch(`/api/chat/${chatId}/messages`);
-    const data = await res.json();
-    setMessages(data.messages || []);
-    setStudentEmail(data.studentEmail || "Schüler");
-  }
+  const selectedChatObj = useMemo(
+    () => chats.find((c) => c.id === chatId) ?? null,
+    [chats, chatId]
+  );
 
   useEffect(() => {
     if (!chatId) return;
+    let alive = true;
+
+    async function loadMessages() {
+      setLoadingMessages(true);
+      try {
+        const res = await fetch(`/api/chat/${chatId}/messages`, { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        const newMessages: Msg[] = data.messages || [];
+        if (!alive) return;
+        const newestId = newMessages.length ? newMessages[newMessages.length - 1].id : null;
+        if (newestId && newestId !== lastMsgIdRef.current) {
+          setMessages(newMessages);
+          lastMsgIdRef.current = newestId;
+          setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 10);
+        } else if (!newestId && lastMsgIdRef.current !== null) {
+          setMessages(newMessages);
+          lastMsgIdRef.current = null;
+        }
+        setPartnerEmail(selectedChatObj?.studentEmail || data.studentEmail || "");
+        setPartnerName(selectedChatObj?.studentName || data.studentName || "");
+        fetch(`/api/chat/${chatId}/mark-read`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "teacher" }),
+        }).catch(() => {});
+      } finally {
+        if (alive) setLoadingMessages(false);
+      }
+    }
+
     loadMessages();
     const interval = setInterval(loadMessages, 5000);
-    return () => clearInterval(interval);
-  }, [chatId]);
+    return () => { alive = false; clearInterval(interval); };
+  }, [chatId, selectedChatObj]);
 
-  // -------------------
-  // MESSAGE SENDEN
-  // -------------------
-  async function sendMessage(e: any) {
+  async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim()) return;
-
+    const text = input.trim();
+    if (!text) return;
+    setMessages((prev) => [...prev, { id: `tmp-${Date.now()}`, sender: "teacher", text, createdAt: new Date().toISOString() }]);
+    setInput("");
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 10);
     await fetch(`/api/chat/${chatId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sender: "teacher", text: input }),
-    });
-
-    setInput("");
-    loadMessages();
+      body: JSON.stringify({ sender: "teacher", text }),
+    }).catch(() => {});
   }
 
   return (
-    <div className="flex h-[calc(100vh-70px)] bg-gray-100">
+    <div className="h-[calc(100vh-56px)] w-full flex overflow-hidden">
 
-      {/* SIDEBAR */}
-      <div className="w-[300px] bg-white border-r border-gray-300 p-4 overflow-y-auto">
-        <h2 className="text-xl font-semibold text-blue-600 mb-4">Chats</h2>
-
-        {chats.map((chat) => (
-          <div
-            key={chat.id}
-            onClick={() => router.push(`/teacher/chat/${chat.id}`)}
-            className={`p-3 rounded-lg cursor-pointer mb-2 shadow-sm border 
-              hover:bg-blue-50 transition 
-              ${chat.id === chatId ? "bg-blue-100 border-blue-500" : "bg-white"}
-            `}
-          >
-            <p className="font-semibold text-gray-900">{chat.studentEmail}</p>
-            <p className="text-xs text-gray-500">Chat öffnen →</p>
-          </div>
-        ))}
-      </div>
-
-      {/* CHAT RECHTS */}
-      <div className="flex-1 flex flex-col">
-
-        {/* HEADER */}
-        <div className="px-5 py-4 bg-blue-600 text-white shadow flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold">
-            {studentEmail.charAt(0).toUpperCase()}
-          </div>
-          <div>
-            <p className="font-semibold text-lg">{studentEmail}</p>
-            <p className="text-xs opacity-80">Online</p>
-          </div>
+      {/* SIDEBAR: Chat-Liste */}
+      <aside className={`
+        h-full overflow-y-auto bg-white flex flex-col shrink-0
+        md:w-[300px] lg:w-[320px] md:border-r
+        ${showSidebar ? "w-full" : "hidden md:flex"}
+      `}>
+        <div className="px-4 py-3 border-b">
+          <h2 className="text-lg font-semibold">Chats</h2>
         </div>
-
-        {/* MESSAGES */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-gray-50">
-          {messages.map((msg: any) => (
-            <div
-              key={msg.id}
-              className={`max-w-xl px-4 py-2 rounded-xl shadow 
-                ${msg.sender === "teacher"
-                  ? "bg-blue-600 text-white ml-auto rounded-br-none"
-                  : "bg-white text-gray-900 rounded-bl-none"
-                }`}
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {loadingChats && <p className="text-sm text-gray-500 px-1">Lade Chats…</p>}
+          {!loadingChats && chats.length === 0 && (
+            <p className="text-sm text-gray-500 px-1">Noch keine Chats vorhanden.</p>
+          )}
+          {chats.map((chat) => (
+            <button
+              key={chat.id}
+              onClick={() => { router.push(`/teacher/chat/${chat.id}`); setShowSidebar(false); }}
+              className={`w-full text-left rounded-xl border p-3 transition ${
+                chat.id === chatId
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-gray-200 bg-white hover:bg-gray-50"
+              }`}
             >
-              {msg.text}
-              <div className="text-xs opacity-70 mt-1 text-right">
-                {new Date(msg.createdAt).toLocaleTimeString()}
-              </div>
-            </div>
+              <div className="font-semibold text-sm">{chat.studentName || "Schüler"}</div>
+              <div className="text-xs text-gray-500 truncate">{chat.studentEmail}</div>
+              {chat.subject && <div className="text-[11px] text-gray-400 mt-0.5">{chat.subject}</div>}
+            </button>
           ))}
         </div>
+      </aside>
 
-        {/* INPUT */}
-        <form
-          onSubmit={sendMessage}
-          className="p-4 bg-white flex items-center gap-3 border-t"
-        >
+      {/* CHAT-BEREICH */}
+      <section className={`
+        flex-1 h-full flex flex-col bg-gray-50 min-w-0
+        ${!showSidebar ? "flex" : "hidden md:flex"}
+      `}>
+        {/* Header */}
+        <div className="px-4 py-3 bg-blue-600 text-white flex items-center gap-3 shrink-0">
+          <button
+            className="md:hidden p-1 rounded-lg hover:bg-blue-700 transition"
+            onClick={() => setShowSidebar(true)}
+            aria-label="Zurück zur Chat-Liste"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <div className="min-w-0">
+            <div className="text-base font-semibold truncate">
+              {partnerName || partnerEmail || "Chat"}
+            </div>
+            {partnerEmail && (
+              <div className="text-xs text-blue-100 truncate">{partnerEmail}</div>
+            )}
+          </div>
+        </div>
+
+        {/* Nachrichten */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+          {loadingMessages && messages.length === 0 && (
+            <p className="text-sm text-gray-500">Lade Nachrichten…</p>
+          )}
+          {!loadingMessages && messages.length === 0 && (
+            <p className="text-sm text-gray-500">Noch keine Nachrichten.</p>
+          )}
+
+          {messages.map((msg) => {
+            if (msg.sender === "system") {
+              return (
+                <div key={msg.id} className="flex justify-center">
+                  <div className="max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 shadow-sm">
+                    <span className="mr-2">✅</span>
+                    {msg.text}
+                    {msg.createdAt && (
+                      <div className="mt-1 text-[10px] text-amber-700 text-right">
+                        {new Date(msg.createdAt).toLocaleString("de-DE")}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+            const isTeacher = msg.sender === "teacher";
+            return (
+              <div key={msg.id} className={`flex ${isTeacher ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm ${
+                  isTeacher ? "bg-blue-600 text-white" : "bg-white text-gray-900"
+                }`}>
+                  <div className="text-sm whitespace-pre-wrap break-words">{msg.text}</div>
+                  {msg.createdAt && (
+                    <div className={`mt-1 text-[10px] ${isTeacher ? "text-blue-200" : "text-gray-400"} text-right`}>
+                      {new Date(msg.createdAt).toLocaleString("de-DE")}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input */}
+        <form onSubmit={sendMessage} className="p-3 bg-white border-t flex gap-2 shrink-0">
           <input
             type="text"
+            className="flex-1 border rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Nachricht schreiben..."
-            className="flex-1 border rounded-full px-4 py-2 bg-gray-100 
-                       focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={input}
             onChange={(e) => setInput(e.target.value)}
           />
           <button
             type="submit"
-            className="px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700"
+            disabled={!input.trim()}
+            className="px-5 py-2.5 rounded-full bg-blue-600 text-white text-sm font-semibold disabled:opacity-50 shrink-0"
           >
             Senden
           </button>
         </form>
-      </div>
+      </section>
     </div>
   );
 }

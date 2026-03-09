@@ -199,40 +199,40 @@ export default function TeacherAvailabilityPage() {
               {WEEKDAYS.map((wd) => {
                 const day = schedule.find((d) => d.weekday === wd.index)!;
                 return (
-                  <div key={wd.index} className={`flex items-center gap-4 p-3 rounded-xl border transition ${day.active ? "border-blue-200 bg-blue-50" : "border-gray-200 bg-gray-50"}`}>
-                    {/* Toggle */}
-                    <button
-                      onClick={() => updateDay(wd.index, "active", !day.active)}
-                      className={`w-10 h-6 rounded-full transition-colors shrink-0 ${day.active ? "bg-blue-600" : "bg-gray-300"}`}
-                      aria-label={day.active ? "Deaktivieren" : "Aktivieren"}
-                    >
-                      <span className={`block w-4 h-4 bg-white rounded-full shadow mx-1 transition-transform ${day.active ? "translate-x-4" : ""}`} />
-                    </button>
-
-                    {/* Label */}
-                    <span className={`w-24 text-sm font-medium shrink-0 ${day.active ? "text-gray-800" : "text-gray-400"}`}>
-                      {wd.label}
-                    </span>
+                  <div key={wd.index} className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 rounded-xl border transition ${day.active ? "border-blue-200 bg-blue-50" : "border-gray-200 bg-gray-50"}`}>
+                    {/* Toggle + Label */}
+                    <div className="flex items-center gap-3 shrink-0">
+                      <button
+                        onClick={() => updateDay(wd.index, "active", !day.active)}
+                        className={`w-10 h-6 rounded-full transition-colors shrink-0 ${day.active ? "bg-blue-600" : "bg-gray-300"}`}
+                        aria-label={day.active ? "Deaktivieren" : "Aktivieren"}
+                      >
+                        <span className={`block w-4 h-4 bg-white rounded-full shadow mx-1 transition-transform ${day.active ? "translate-x-4" : ""}`} />
+                      </button>
+                      <span className={`w-24 text-sm font-medium ${day.active ? "text-gray-800" : "text-gray-400"}`}>
+                        {wd.label}
+                      </span>
+                    </div>
 
                     {/* Times */}
                     {day.active ? (
-                      <div className="flex items-center gap-2 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <input
                           type="time"
                           value={day.fromTime}
                           onChange={(e) => updateDay(wd.index, "fromTime", e.target.value)}
-                          className="border rounded-lg px-3 py-1.5 text-sm"
+                          className="border rounded-lg px-3 py-1.5 text-sm min-w-0"
                         />
                         <span className="text-gray-400 text-sm">bis</span>
                         <input
                           type="time"
                           value={day.toTime}
                           onChange={(e) => updateDay(wd.index, "toTime", e.target.value)}
-                          className="border rounded-lg px-3 py-1.5 text-sm"
+                          className="border rounded-lg px-3 py-1.5 text-sm min-w-0"
                         />
                       </div>
                     ) : (
-                      <span className="text-sm text-gray-400 flex-1">Nicht verfügbar</span>
+                      <span className="text-sm text-gray-400">Nicht verfügbar</span>
                     )}
                   </div>
                 );
