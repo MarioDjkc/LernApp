@@ -21,7 +21,7 @@ export default function DatenschutzPage() {
             <p>
               Verantwortlicher im Sinne der DSGVO für den Betrieb dieser Plattform ist:<br />
               <strong>LernApp e.U.</strong><br />
-              E-Mail: <a href="mailto:office@lernapp.at" className="text-blue-600 underline">office@lernapp.at</a><br />
+              E-Mail: <a href="mailto:lerneazy.office@gmail.com" className="text-blue-600 underline">lerneazy.office@gmail.com</a><br />
               Österreich
             </p>
           </section>
@@ -209,8 +209,8 @@ export default function DatenschutzPage() {
             </ul>
             <p className="mt-2">
               Für Anfragen wende dich an:{" "}
-              <a href="mailto:office@lernapp.at" className="text-blue-600 underline">
-                office@lernapp.at
+              <a href="mailto:lerneazy.office@gmail.com" className="text-blue-600 underline">
+                lerneazy.office@gmail.com
               </a>
             </p>
           </section>

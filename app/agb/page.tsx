@@ -81,7 +81,7 @@ export default function AgbPage() {
             Nach erfolgter Zahlung (Status &bdquo;Bezahlt&ldquo;) ist eine Stornierung durch den
             Sch&uuml;ler &uuml;ber die Plattform nicht mehr m&ouml;glich. In begr&uuml;ndeten
             Ausnahmef&auml;llen kann eine R&uuml;ckerstattung direkt beim Support beantragt werden
-            (office@lernapp.at).
+            (lerneazy.office@gmail.com).
           </p>
           <p className="text-gray-700 leading-relaxed mt-2">
             Lehrer k&ouml;nnen best&auml;tigte und bereits bezahlte Termine jederzeit stornieren. In
@@ -102,7 +102,7 @@ export default function AgbPage() {
           </p>
           <p className="text-gray-700 leading-relaxed mt-2">
             Um das Widerrufsrecht auszu&uuml;ben, m&uuml;ssen Sie uns (LernApp e.U., E-Mail:
-            office@lernapp.at) mittels einer eindeutigen Erkl&auml;rung (z.&nbsp;B. per E-Mail)
+            lerneazy.office@gmail.com) mittels einer eindeutigen Erkl&auml;rung (z.&nbsp;B. per E-Mail)
             &uuml;ber Ihren Entschluss, diesen Vertrag zu widerrufen, informieren.
           </p>
           <p className="text-gray-700 leading-relaxed mt-2">
@@ -197,7 +197,7 @@ export default function AgbPage() {
           </p>
           <div className="border border-gray-300 rounded-xl p-5 text-gray-700 text-sm space-y-3 bg-gray-50">
             <p>
-              <strong>An:</strong> LernApp e.U., E-Mail: office@lernapp.at
+              <strong>An:</strong> LernApp e.U., E-Mail: lerneazy.office@gmail.com
             </p>
             <p>
               Hiermit widerrufe(n) ich/wir (*) den von mir/uns (*) abgeschlossenen Vertrag
@@ -215,8 +215,8 @@ export default function AgbPage() {
           </div>
           <p className="text-gray-600 text-sm mt-3">
             Den ausgef&uuml;llten Widerruf senden Sie bitte per E-Mail an{" "}
-            <a href="mailto:office@lernapp.at" className="text-blue-600 underline">
-              office@lernapp.at
+            <a href="mailto:lerneazy.office@gmail.com" className="text-blue-600 underline">
+              lerneazy.office@gmail.com
             </a>
             . Wir best&auml;tigen den Eingang Ihres Widerrufs unverz&uuml;glich.
           </p>

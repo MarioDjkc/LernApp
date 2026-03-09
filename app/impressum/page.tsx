@@ -17,7 +17,7 @@ export default function ImpressumPage() {
         <section className="mb-6">
           <h2 className="text-lg font-semibold mb-2">Kontakt</h2>
           <p className="text-gray-700 leading-relaxed">
-            E-Mail: <a href="mailto:office@lernapp.at" className="text-blue-600 hover:underline">office@lernapp.at</a><br />
+            E-Mail: <a href="mailto:lerneazy.office@gmail.com" className="text-blue-600 hover:underline">lerneazy.office@gmail.com</a><br />
             Telefon: +43 1 234 56 78
           </p>
         </section>
