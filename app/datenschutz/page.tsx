@@ -42,7 +42,7 @@ export default function DatenschutzPage() {
 
             <p className="mt-3 font-medium text-gray-800">Lehrerinnen &amp; Lehrer</p>
             <ul className="list-disc ml-5 mt-1 space-y-1">
-              <li><strong>Profildaten:</strong> Name, E-Mail-Adresse, Passwort (verschlüsselt), Fächer, Schulform, Adresse, Profilbeschreibung</li>
+              <li><strong>Profildaten:</strong> Name, E-Mail-Adresse, Passwort (verschlüsselt), Fächer, Schulform, Adresse, Profilbeschreibung, sowie optional Steuernummer / SVS-Nummer (freiwillige Angabe, wird nur intern gespeichert und nicht öffentlich angezeigt)</li>
               <li><strong>Profilbild:</strong> Freiwillig hochgeladenes Foto, gespeichert auf unseren Servern</li>
               <li><strong>Verfügbarkeitsdaten:</strong> Wochenplan und Abwesenheitszeiträume</li>
               <li><strong>Stripe Connect-Daten:</strong> Für Auszahlungen verbinden Lehrkräfte ihr Stripe Express-Konto. Wir speichern lediglich die Stripe Account-ID. Bankdaten und Identitätsdaten werden direkt an Stripe übermittelt und dort verarbeitet.</li>

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
 import { logError } from "@/app/lib/logError";
 import { rateLimit } from "@/lib/rateLimit";
+import { calcPriceCents } from "@/app/lib/pricing";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
@@ -70,10 +71,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1) Teacher muss existieren
+    // 1) Teacher muss existieren (inkl. Bewertungsdaten für Preisberechnung)
     const teacher = await prisma.teacher.findUnique({
       where: { id: teacherId },
-      select: { id: true },
+      select: {
+        id: true,
+        ratings: { select: { stars: true } },
+      },
     });
 
     if (!teacher) {
@@ -156,9 +160,14 @@ export async function POST(req: Request) {
       sendWelcomeMail(studentEmail, studentName ?? "", `${baseUrl}/student/set-password?token=${resetToken}`).catch(() => {});
     }
 
-    // 5) Preis berechnen: 33 € pro Stunde
+    // 5) Preis berechnen: dynamisch nach Bewertungsformel
+    const ratingCount = teacher.ratings.length;
+    const avgRating =
+      ratingCount > 0
+        ? teacher.ratings.reduce((s, r) => s + r.stars, 0) / ratingCount
+        : null;
     const durationMinutes = (endDate.getTime() - startDate.getTime()) / 60_000;
-    const priceCents = Math.round((durationMinutes / 60) * 33 * 100);
+    const priceCents = calcPriceCents(durationMinutes, ratingCount, avgRating);
 
     // 6) Booking erstellen
     const booking = await prisma.booking.create({

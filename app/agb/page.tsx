@@ -45,9 +45,24 @@ export default function AgbPage() {
         <section>
           <h2 className="text-lg font-semibold mb-2">4. Preise und Zahlung</h2>
           <p className="text-gray-700 leading-relaxed">
-            Der Preis f&uuml;r Nachhilfestunden betr&auml;gt 33,00&nbsp;&euro; pro Unterrichtsstunde
-            (60&nbsp;Minuten), anteilig berechnet auf Basis von 30&nbsp;Minuten als Mindestbuchungsdauer.
-            Alle Preise sind Endpreise. Die Zahlung erfolgt &uuml;ber den Zahlungsdienstleister Stripe.
+            Der Preis f&uuml;r Nachhilfestunden ist <strong>variabel</strong> und richtet sich nach
+            der Anzahl sowie dem Durchschnitt der Bewertungen der jeweiligen Lehrkraft. Der Preis
+            pro Unterrichtsstunde (60&nbsp;Minuten) wird nach folgender Formel berechnet:
+          </p>
+          <p className="text-gray-700 leading-relaxed mt-2 font-mono text-sm bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+            Preis (€/h) = 25 + 20 &times; (1 &minus; e<sup>&minus;x/15</sup>) &times; a/5
+          </p>
+          <p className="text-gray-700 leading-relaxed mt-2 text-sm">
+            Dabei gilt: <em>x</em> = Anzahl der Bewertungen der Lehrkraft,{" "}
+            <em>a</em> = Durchschnittsbewertung (1&ndash;5; Mindestwert 1 bei noch keiner Bewertung).
+            Neue Lehrkräfte starten bei <strong>25,00&nbsp;&euro;/h</strong>. Mit vielen
+            Top-Bewertungen (a&nbsp;=&nbsp;5) konvergiert der Preis gegen <strong>45,00&nbsp;&euro;/h</strong>.
+            Der konkrete Stundenpreis wird dem Sch&uuml;ler auf der Buchungsseite angezeigt, bevor
+            eine Buchung verbindlich abgeschlossen wird.
+          </p>
+          <p className="text-gray-700 leading-relaxed mt-2">
+            Alle Preise sind Endpreise. Die Berechnung erfolgt anteilig auf Basis von 30&nbsp;Minuten
+            als Mindestbuchungsdauer. Die Zahlung erfolgt &uuml;ber den Zahlungsdienstleister Stripe.
             Mit der Buchung speichert der Sch&uuml;ler seine Zahlungsmethode. Die tats&auml;chliche
             Belastung erfolgt erst nach Best&auml;tigung durch den Lehrer. Zahlungen sind grunds&auml;tzlich
             im Voraus f&auml;llig.

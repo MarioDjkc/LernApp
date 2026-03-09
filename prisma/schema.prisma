@@ -83,6 +83,7 @@ model Teacher {
   profilePicture String?
   address        String?
   description    String?
+  taxNumber      String?
 
   // Stufen/Schultyp-Einschraenkungen (gesetzt vom Admin beim Anlegen)
   unterstufeOnly Boolean @default(false)

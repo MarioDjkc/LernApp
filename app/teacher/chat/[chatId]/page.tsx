@@ -42,7 +42,7 @@ export default function TeacherChatPage() {
   useEffect(() => {
     if (!chatId) return;
     loadMessages();
-    const interval = setInterval(loadMessages, 1500);
+    const interval = setInterval(loadMessages, 5000);
     return () => clearInterval(interval);
   }, [chatId]);
 

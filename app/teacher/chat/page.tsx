@@ -122,7 +122,7 @@ export default function TeacherChatPage() {
     }
 
     loadMessages();
-    const interval = setInterval(loadMessages, 1200);
+    const interval = setInterval(loadMessages, 5000);
 
     return () => {
       alive = false;

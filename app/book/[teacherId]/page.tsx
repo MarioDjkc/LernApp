@@ -4,8 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Avatar from "@/app/components/Avatar";
-
-const PRICE_PER_HOUR = 33;
+import { calcHourlyPrice } from "@/app/lib/pricing";
 
 type Teacher = {
   id: string;
@@ -327,7 +326,11 @@ export default function BookPage() {
     return parseSubjects(teacher?.subject);
   }, [teacher]);
   const hours    = useMemo(() => calcHours(startTime, endTime), [startTime, endTime]);
-  const priceCents   = Math.round(hours * PRICE_PER_HOUR * 100);
+  const hourlyPrice = useMemo(
+    () => calcHourlyPrice(teacher?.ratingCount ?? 0, teacher?.avgRating ?? null),
+    [teacher]
+  );
+  const priceCents   = Math.round(hours * hourlyPrice * 100);
   const priceFormatted = (priceCents / 100).toFixed(2).replace(".", ",");
 
   // Selected date checks
@@ -470,7 +473,7 @@ export default function BookPage() {
         {/* ── Booking form ── */}
         <div className="bg-white rounded-2xl shadow-sm p-6">
           <h2 className="font-semibold text-lg mb-1">Termin buchen</h2>
-          <p className="text-xs text-gray-500 mb-5">1 Stunde = {PRICE_PER_HOUR} € · Mindestbuchung: 30 Minuten</p>
+          <p className="text-xs text-gray-500 mb-5">1 Stunde = {hourlyPrice.toFixed(2).replace(".", ",")} € · Mindestbuchung: 30 Minuten</p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Name + Email */}
@@ -575,7 +578,7 @@ export default function BookPage() {
             {/* Cost preview */}
             {hours > 0 && timeValid && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between">
-                <span className="text-sm text-blue-800">{hours.toFixed(1).replace(".", ",")} Std. × {PRICE_PER_HOUR} €</span>
+                <span className="text-sm text-blue-800">{hours.toFixed(1).replace(".", ",")} Std. × {hourlyPrice.toFixed(2).replace(".", ",")} €</span>
                 <span className="font-bold text-blue-900 text-lg">{priceFormatted} €</span>
               </div>
             )}

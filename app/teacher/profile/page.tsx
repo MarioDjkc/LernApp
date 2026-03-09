@@ -11,6 +11,7 @@ type Profile = {
   profilePicture: string | null;
   address: string | null;
   description: string | null;
+  taxNumber: string | null;
   avgRating: number | null;
   ratingCount: number;
 };
@@ -43,6 +44,7 @@ export default function TeacherProfilePage() {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [description, setDescription] = useState("");
+  const [taxNumber, setTaxNumber] = useState("");
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadingPic, setUploadingPic] = useState(false);
@@ -64,6 +66,7 @@ export default function TeacherProfilePage() {
     setName(p?.name ?? "");
     setAddress(p?.address ?? "");
     setDescription(p?.description ?? "");
+    setTaxNumber(p?.taxNumber ?? "");
     setPicPreview(p?.profilePicture ?? null);
 
     if (p?.id) {
@@ -88,7 +91,7 @@ export default function TeacherProfilePage() {
     const res = await fetch("/api/teacher/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: session.user.email, name, address, description }),
+      body: JSON.stringify({ email: session.user.email, name, address, description, taxNumber }),
     });
     const json = await res.json().catch(() => ({}));
     setMsg(res.ok ? "Gespeichert." : json?.error ?? "Fehler");
@@ -176,6 +179,23 @@ export default function TeacherProfilePage() {
             placeholder="z.B. Musterstrasse 1, 1010 Wien"
             className="w-full border rounded-lg px-3 py-2"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Steuernummer / SVS-Nummer{" "}
+            <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={taxNumber}
+            onChange={(e) => setTaxNumber(e.target.value)}
+            placeholder="z.B. 12 345/6789 oder SVNR"
+            className="w-full border rounded-lg px-3 py-2"
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Wird nur intern gespeichert und nicht öffentlich angezeigt.
+          </p>
         </div>
 
         <div>

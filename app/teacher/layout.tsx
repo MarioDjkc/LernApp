@@ -83,6 +83,9 @@ export default function TeacherLayout({
         <Link href="/teacher/payments" className={isActive("/teacher/payments")}>
           Payments
         </Link>
+        <Link href="/teacher/ratings" className={isActive("/teacher/ratings")}>
+          Bewertungen
+        </Link>
         <Link href="/teacher/profile" className={isActive("/teacher/profile")}>
           Profil
         </Link>

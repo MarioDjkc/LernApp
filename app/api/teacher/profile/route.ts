@@ -23,6 +23,7 @@ export async function GET(req: Request) {
         profilePicture: true,
         address: true,
         description: true,
+        taxNumber: true,
         unterstufeOnly: true,
         schoolTrack: true,
         allowedForms: true,
@@ -75,11 +76,12 @@ export async function PATCH(req: Request) {
     if (typeof body.description === "string") data.description = body.description.trim();
     if (typeof body.address === "string") data.address = body.address.trim();
     if (typeof body.name === "string" && body.name.trim()) data.name = body.name.trim();
+    if (typeof body.taxNumber === "string") data.taxNumber = body.taxNumber.trim();
 
     const updated = await prisma.teacher.update({
       where: { id: teacher.id },
       data,
-      select: { id: true, name: true, description: true, address: true },
+      select: { id: true, name: true, description: true, address: true, taxNumber: true },
     });
 
     return NextResponse.json({ ok: true, data: updated });

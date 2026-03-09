@@ -372,15 +372,25 @@
     <h3>§ 4 – Vergütung, Provision und Abrechnung</h3>
     <ol>
       <li>
-        Der von Schülerinnen und Schülern gezahlte <strong>Stundenpreis beträgt derzeit
-        33,00&nbsp;EUR</strong> pro 60-Minuten-Einheit (Endpreis inkl. aller Abgaben auf
-        Schülerseite). Die Plattform kann diesen Preis nach § 9 Abs. 1 ändern.
+        Der von Schülerinnen und Schülern gezahlte <strong>Stundenpreis ist variabel</strong>
+        und wird nach folgender Formel berechnet:<br />
+        <br />
+        <span style="font-family:monospace; font-size:9pt; background:#f0f4ff; padding:3px 8px; border-radius:3px; display:inline-block;">
+          Preis (EUR/h) = 25 + 20 &times; (1 &minus; e<sup>&minus;x/15</sup>) &times; a/5
+        </span><br />
+        <br />
+        Dabei gilt: <em>x</em> = Anzahl der Bewertungen der Lehrkraft auf der Plattform;
+        <em>a</em> = Durchschnittsbewertung (Skala 1–5; Mindestwert 1 bei noch keinen Bewertungen).
+        Neue Lehrkräfte starten bei <strong>25,00&nbsp;EUR/h</strong>. Mit zunehmenden
+        Top-Bewertungen (a&nbsp;=&nbsp;5) konvergiert der Preis gegen <strong>45,00&nbsp;EUR/h</strong>
+        pro 60-Minuten-Einheit
+        (Endpreis inkl. aller Abgaben auf Schülerseite). Die Plattform kann dieses Preismodell nach
+        § 9 Abs. 1 ändern.
       </li>
       <li>
-        Die Lehrkraft erhält <strong>60&nbsp;% des von der Plattform kassierten Bruttobetrags</strong>
-        (d.&nbsp;h. derzeit <strong>19,80&nbsp;EUR pro 60 Minuten</strong>). Die verbleibenden
-        40&nbsp;% verbleiben als Plattformprovision bei der Plattform zur Deckung von Betrieb,
-        Zahlungsabwicklung, Marketing und Infrastruktur.
+        Die Lehrkraft erhält <strong>70&nbsp;% des von der Plattform kassierten Bruttobetrags</strong>
+        pro abgeschlossener Buchung. Die verbleibenden 30&nbsp;% verbleiben als Plattformprovision
+        bei der Plattform zur Deckung von Betrieb, Zahlungsabwicklung, Marketing und Infrastruktur.
       </li>
       <li>
         Die Auszahlung erfolgt über <strong>Stripe Connect</strong>. Die Lehrkraft verpflichtet
@@ -406,9 +416,14 @@
       </li>
     </ol>
     <div class="highlight-box">
-      <strong>Aktuelle Vergütungsübersicht:</strong><br />
-      Schülerpreis: 33,00 EUR &nbsp;|&nbsp; Lehrkraft (60&nbsp;%): <strong>19,80 EUR</strong>
-      &nbsp;|&nbsp; Plattformprovision (40&nbsp;%): 13,20 EUR
+      <strong>Vergütungsmodell:</strong><br />
+      Schülerpreis: variabel (25,00–45,00&nbsp;EUR/h je nach Bewertungen der Lehrkraft)<br />
+      Lehrkraft-Anteil: <strong>70&nbsp;%</strong> des kassierten Betrags &nbsp;|&nbsp;
+      Plattformprovision: <strong>30&nbsp;%</strong> des kassierten Betrags<br />
+      <span style="font-size:8.5pt; color:#555;">
+        Beispiele: bei 25,00&nbsp;EUR/h → Lehrkraft 17,50&nbsp;EUR, Plattform 7,50&nbsp;EUR &nbsp;|&nbsp;
+        bei 45,00&nbsp;EUR/h → Lehrkraft 31,50&nbsp;EUR, Plattform 13,50&nbsp;EUR
+      </span>
     </div>
   </div>
 

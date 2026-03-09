@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 
 import Avatar from "@/app/components/Avatar";
+import { calcHourlyPrice } from "@/app/lib/pricing";
 
 type Teacher = {
   id: string;
@@ -12,7 +13,7 @@ type Teacher = {
   subject: string;
   profilePicture?: string | null;
   avgRating?: number | null;
-  ratingCount?: number;
+  ratingCount: number;
 };
 
 const SUBJECT_CHIPS: string[] = [
@@ -168,33 +169,29 @@ export default function StudentDashboardPage() {
             <p className="text-gray-500">Keine passenden Lehrer gefunden.</p>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {teachers.map((t) => (
               <article
                 key={t.id}
-                className="flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm border border-gray-200"
+                className="flex flex-col items-center rounded-2xl bg-white px-6 py-8 shadow-sm border border-gray-200 text-center gap-4"
               >
-                <div className="flex items-center gap-3">
-                  <Avatar src={t.profilePicture} name={t.name} size={40} className="w-10 h-10" />
+                <Avatar src={t.profilePicture} name={t.name} size={80} className="w-20 h-20" />
 
-                  <div className="space-y-0.5">
-                    <div className="font-semibold text-sm truncate max-w-[160px]">
-                      {t.name}
-                    </div>
-                    <div className="text-xs text-gray-600">{t.subject}</div>
-                    <div className="text-[11px] text-amber-500">
-                      {t.avgRating != null
-                        ? `${Array.from({ length: 5 }, (_, i) => i < Math.round(t.avgRating!) ? "★" : "☆").join("")} ${t.avgRating.toFixed(1)}`
-                        : "Noch keine Bewertung"}
-                    </div>
+                <div className="space-y-1">
+                  <div className="font-semibold text-lg">{t.name}</div>
+                  <div className="text-sm text-gray-600">{t.subject}</div>
+                  <div className="text-sm text-amber-500">
+                    {t.avgRating != null
+                      ? `${Array.from({ length: 5 }, (_, i) => i < Math.round(t.avgRating!) ? "★" : "☆").join("")} ${t.avgRating.toFixed(1)}`
+                      : "Noch keine Bewertung"}
                   </div>
                 </div>
 
                 <Link
                   href={`/book/${t.id}`}
-                  className="whitespace-nowrap rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+                  className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition"
                 >
-                  Termin vereinbaren
+                  Termin vereinbaren – {calcHourlyPrice(t.ratingCount, t.avgRating ?? null).toFixed(2).replace(".", ",")} €/h
                 </Link>
               </article>
             ))}
